@@ -328,10 +328,11 @@ def batcher(dataset, word_to_idx, batch_size=8):
 
     # add padding to the context
         max_len = max(len(c) for c in batch_contexts)
+        pad_id = word_to_idx.get('<pad>', 0)
 
         for context in batch_contexts:
             while len(context) < max_len:
-                context.append(0)  # pad with <pad> index
+                context.append(pad_id)  # pad with <pad> index
 
     # transform the batch to a pytorch tensor
         target_tensor = torch.tensor(batch_targets, dtype=torch.long)
@@ -382,22 +383,27 @@ import torch.optim as optim
 # [7 marks]
 
 # %%
+# # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # EUGENE'S ATTEMPT # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # #
+
 class CBOWModel(nn.Module):
-    def __init__(self, ...):
+    def __init__(self, num_embeddings, embedding_dim):
         super(CBOWModel, self).__init__()
         # where the embeddings of words are stored
         # each word in the vocabulary should have one embedding assigned to it
-        self.embeddings = ...
+        self.embeddings = nn.Embedding(
+            num_embeddings, embedding_dim, padding_idx=0)
         # a transformation that predicts a word from the vocabulary
-        self.prediction = ...
+        self.prediction = nn.Linear(embedding_dim, num_embeddings)
 
     def forward(self, context):
         # translate a batch to embeddings
-        embedded_context = ...
+        embedded_context = self.embeddings(context)
         # reduce dimensions of the embeddings
-        projection = ...
+        projection = self.projection_function(embedded_context)
         # predict the target word from the vocabulary
-        predictions = ...
+        predictions = self.prediction(projection)
 
         return predictions
 
@@ -408,7 +414,7 @@ class CBOWModel(nn.Module):
         this function should compute the sum over the embedding dimensions of the input,
         that is, we transform (B, S, D) to (B, 1, D) or (B, D)
         """
-        xs_sum = ...
+        xs_sum = torch.sum(xs, dim=1)
         return xs_sum
 
 
