@@ -68,6 +68,8 @@ import numpy as np
 # If you're using GPUs, replace "cpu" with "cuda:n" where n is the index of the GPU
 if torch.cuda.is_available():
     device = torch.device('cuda:0')  # use the first GPU
+# elif torch.backends.mps.is_available():
+    # device = torch.device('mps')     # use Apple Silicon GPU
 else:
     device = torch.device('cpu')
 
@@ -393,7 +395,8 @@ class CBOWModel(nn.Module):
         # where the embeddings of words are stored
         # each word in the vocabulary should have one embedding assigned to it
         self.embeddings = nn.Embedding(
-            num_embeddings, embedding_dim, padding_idx=0)
+            num_embeddings, embedding_dim, padding_idx=0
+        )
         # a transformation that predicts a word from the vocabulary
         self.prediction = nn.Linear(embedding_dim, num_embeddings)
 
@@ -422,10 +425,12 @@ class CBOWModel(nn.Module):
 # The next step is to train a model. First we define what (hyper)parameters we will use, i.e. settings that affect how the model will be trained. You can change these and see what happens with training, for example when *developing* your model you can use a batch size of 2 and a very low dimensionality (say 10) to speed things up. For training your final target model, use batch sizes of [8,16,32,64], and embedding dimensionalities [128,256].
 
 # %%
-word_embeddings_hyperparameters = {'epochs':3,
-                                   'batch_size':16,
-                                   'learning_rate':0.001,
-                                   'embedding_dim':128}
+word_embeddings_hyperparameters = {'epochs': 3,
+                                   # 'batch_size': 16,
+                                   'batch_size': 512,
+                                   'learning_rate': 0.001,
+                                   # 'embedding_dim': 128}
+                                   'embedding_dim': 10}
 
 # %% [markdown]
 # Train your model. Iterate over the dataset, get outputs from your model, calculate loss and backpropagate.
@@ -435,22 +440,47 @@ word_embeddings_hyperparameters = {'epochs':3,
 # [3 marks]
 
 # %%
+# # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # EUGENE'S ATTEMPT # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # #
+
+batch_size = word_embeddings_hyperparameters['batch_size']
+total_batches = (len(all_data) + batch_size - 1) // batch_size
+
+total_epochs = word_embeddings_hyperparameters['epochs']
+
 # load data
-dataset, vocab = get_data(...)
+# dataset, vocab = get_data(...)
 
 # build model and construct loss/optimizer
-cbow_model = CBOWModel(len(vocab), word_embeddings_hyperparameters['embedding_dim'])
+cbow_model = CBOWModel(
+    len(word_to_idx), word_embeddings_hyperparameters['embedding_dim']
+)
 cbow_model.to(device)
 loss_fn = nn.CrossEntropyLoss()
-optimizer = optim.Adam(cbow_model.parameters(), lr=word_embeddings_hyperparameters['lr'])
+optimizer = optim.Adam(
+    cbow_model.parameters(),
+    lr=word_embeddings_hyperparameters['learning_rate']
+)
 
 # start training loop
-total_loss = 0
 for epoch in range(word_embeddings_hyperparameters['epochs']):
-    for i, batch in enumerate(dataset):
+    total_loss = 0  # reset total loss for each epoch
 
-        context = batch.context
-        target_word = batch.target_word
+    dataset_generator = batcher(
+        all_data, word_to_idx, batch_size=batch_size
+    )
+    for i, batch in enumerate(dataset_generator):
+
+        context = batch.context.to(device)
+        target_word = batch.target_word.to(device)
+
+        if epoch == 0 and i == 0:
+            print(f"[DEBUG] Data tensor is on -> {context.device}")
+            print(
+                f"[DEBUG] Model weights are on -> {next(cbow_model.parameters()).device}"
+            )
+            print("=" * 50)
 
         # send your batch of sentences to the model
         output = cbow_model(context)
@@ -458,20 +488,23 @@ for epoch in range(word_embeddings_hyperparameters['epochs']):
         # compute the loss, you'll need to reshape the input
         # you can read more about this is the documentation for
         # CrossEntropyLoss
-        loss = loss_fn(...)
+        loss = loss_fn(output, target_word)
         total_loss += loss.item()
 
         # print average loss for the epoch
-        print(total_loss/(i+1), end='\r')
+        # print(total_loss/(i+1), end='\r')
+        print(
+            f"Epoch {epoch+1} / {total_epochs} | Batch {i} / {total_batches} | Avg Loss: {total_loss/(i+1):.4f}", end='\r')
 
         # compute gradients
-        ...
+        loss.backward()
 
         # update parameters
-        ...
+        optimizer.step()
 
         # reset gradients
-        ...
+        optimizer.zero_grad()
+
     print()
 
 
