@@ -219,8 +219,8 @@ def corpus_reader(data_path, window_size=4, min_freq=4):
     # each word should have an unique integer mapped to it.
     # use a dictionary for this.
     word_to_idx = {
-        '<pad>': 0, # padding
-        '<unk>': 1  # unknown words
+        '<pad>': 0,  # padding
+        '<unk>': 1   # unknown words
     }
 
     current_idx = 2  # start indexing from 2 since 0 and 1 are reserved for <pad> and <unk>
@@ -338,9 +338,24 @@ def batcher(dataset, word_to_idx, batch_size=8):
         context_tensor = torch.tensor(batch_contexts, dtype=torch.long)
 
     # return the dataset of batches/indiviual batches
-    batch = Batch(target_word=target_tensor, context=context_tensor)
-    yield batch
+        batch = Batch(target_word=target_tensor, context=context_tensor)
+        yield batch
 
+
+# %%
+# testing
+print(f"Total items in dataset: {len(all_data)}")
+
+# create the generator
+test_batch_size = 4
+batch_gen = batcher(all_data, word_to_idx, batch_size=test_batch_size)
+
+# grab just the very first batch
+first_batch = next(batch_gen)
+
+print("##### Batch Shape Check #####")
+print(f"Target Tensor Shape:  {first_batch.target_word.shape}") # expect: [4]
+print(f"Context Tensor Shape: {first_batch.context.shape}")     # expect: [4, Max_Context_Len]
 
 # %% [markdown]
 # We lower-cased all tokens above. Give some reasons why this is a good idea, and why it may be harmful to our embeddings.
