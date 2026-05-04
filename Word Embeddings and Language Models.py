@@ -214,15 +214,21 @@ def corpus_reader(data_path, window_size=4, min_freq=4):
             filtered_vocabulary.add(word)
 
     vocabulary = filtered_vocabulary
-    print(vocabulary)
 
     # create a mapping from words to integers.
     # each word should have an unique integer mapped to it.
     # use a dictionary for this.
-    word_to_idx = {}
+    word_to_idx = {
+        '<pad>': 0, # padding
+        '<unk>': 1  # unknown words
+    }
 
-    for idx, word in enumerate(vocabulary):
-        word_to_idx[word] = idx
+    current_idx = 2  # start indexing from 2 since 0 and 1 are reserved for <pad> and <unk>
+
+    for word in vocabulary:
+        if word not in word_to_idx:
+            word_to_idx[word] = current_idx
+            current_idx += 1
 
     return all_data, word_to_idx
 
@@ -305,17 +311,35 @@ Batch = namedtuple('Batch', ['target_word', 'context'])
 
 def batcher(dataset, word_to_idx, batch_size=8):
     # iterate over the dataset
-
-    # select a batch of size `batch_size`
+    for i in range(0, len(dataset), batch_size):
+        # select a batch of size `batch_size`
+        batch_data = dataset[i: i + batch_size]
+        batch_targets = []
+        batch_contexts = []
 
     # translate batch to integers using `word_to_idx`
+        for center_word, context_words in batch_data:
+            # default to <unk> index if word not found
+            target_idx = word_to_idx.get(center_word, 1)
+            context_idx = [word_to_idx.get(w, 1) for w in context_words]
+
+            batch_targets.append(target_idx)
+            batch_contexts.append(context_idx)
 
     # add padding to the context
+        max_len = max(len(c) for c in batch_contexts)
+
+        for context in batch_contexts:
+            while len(context) < max_len:
+                context.append(0)  # pad with <pad> index
 
     # transform the batch to a pytorch tensor
+        target_tensor = torch.tensor(batch_targets, dtype=torch.long)
+        context_tensor = torch.tensor(batch_contexts, dtype=torch.long)
 
     # return the dataset of batches/indiviual batches
-    batch = Batch(target_word, context)
+    batch = Batch(target_word=target_tensor, context=context_tensor)
+    yield batch
 
 
 # %% [markdown]
