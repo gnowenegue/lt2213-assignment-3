@@ -65,13 +65,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+cuda_available = torch.cuda.is_available()
+mps_available = torch.backends.mps.is_available()
+
+print(f"CUDA (NVIDIA GPU) Available: {cuda_available}")
+print(f"MPS (Apple Silicon GPU) Available: {mps_available}")
+
 # If you're using GPUs, replace "cpu" with "cuda:n" where n is the index of the GPU
-if torch.cuda.is_available():
-    device = torch.device('cuda:0')  # use the first GPU
-# elif torch.backends.mps.is_available():
-    # device = torch.device('mps')     # use Apple Silicon GPU
+if cuda_available:
+    device = torch.device('cuda:0')
+    decision = "NVIDIA GPU (CUDA)"
+elif mps_available:
+    device = torch.device('mps')
+    decision = "Apple Silicon GPU (MPS)"
 else:
     device = torch.device('cpu')
+    decision = "CPU"
+
+print(f"Using device: {decision}")
 
 # %% [markdown]
 # # Word2Vec embeddings
@@ -243,12 +254,93 @@ print(len(all_data))
 print(all_data[0])
 print(len(word_to_idx))
 
+# %%
+################## Sana's attempt ##############
+
+data_path = 'data/wiki-corpus.50000.txt'
+WINDOW_SIZE = 4
+def corpus_reader(data_path, window_size=4, min_freq=4):
+    all_data = []
+    vocabulary = set(['<pad>'])
+    #Dictionary to count frequency of each word
+    word_freq = {}
+
+    with open(data_path) as f:
+        sentences = []
+        # go over the lines (sentences in the files)
+        for line in f:
+            # split sentences into tokens
+            tokens = line.strip().split()
+
+            sentences.append(tokens)
+            # save all indiviual words to the vocabulary
+            for word in tokens:
+                vocabulary.add(word)
+                word_freq[word] = word_freq.get(word, 0) + 1
+
+    # Filter vocabulary
+    filtered_vocab = set(['<pad>'])
+    for word, freq in word_freq.items():
+        if freq >= min_freq:
+            filtered_vocab.add(word)
+
+    # extract all (center word, context) with `window_size=4`, pairs from the sentence
+
+    half_window = window_size // 2
+    for tokens in sentences:
+        for i, centre_word in enumerate(tokens):
+              #skip rare words
+            if centre_word not in filtered_vocab:
+                continue
+            context_words = []
+
+              #collect left context words
+
+            for j in range(max(0, i - half_window), i):
+                if tokens[j] in filtered_vocab:
+                    context_words.append(tokens[j])
+
+            #collect right context words
+
+            for j in range(i + 1, min(len(tokens), i + half_window + 1)):
+                if tokens[j] in filtered_vocab:
+                    context_words.append(tokens[j])
+
+
+    
+                # Only add if context is not empty
+            if context_words: 
+                all_data.append((centre_word, context_words))
+
+    # Create word_to_idx mapping
+    word_to_idx = {}
+    for idx, word in enumerate(filtered_vocab):
+        word_to_idx[word] = idx
+
+    return all_data, word_to_idx
+
+all_data, word_to_idx = corpus_reader(data_path, WINDOW_SIZE)
+print(all_data[:10])
+print(list(word_to_idx.items())[:10])
+
 # %% [markdown]
 # We sampled 50.000 senteces randomly from the *entire* wikipedia for our training data. Give some reasons why this is good, and why it might be bad. (*note*: We'll have a few questions like these, one or two reasons for and against is sufficient)
 #
 # [2 marks]
 
 # %%
+
+### It is good:-
+# Computational efficiency: 
+It reduces training time and memory usage, making it feasible to train models quickly.
+# Noise reduction: 
+Since the sentences are randomnly sampled from the entire wikipedia corpus, it still captures a wide range of topics and linguistic contexts.
+### It is bad:-
+# Loss of information:- 
+50,000 sentences may not cover rare words, topics, or linguistic patterns, leading to weaker or incomplete word representaions.
+# Sampling bias: 
+Even if random, the sample might not fully represent the diversity of wikipedia, whcih can affect the quality and generalization of the learned embeddings.
+    
 
 # %% [markdown]
 # ## Loading data
@@ -360,12 +452,84 @@ print("##### Batch Shape Check #####")
 print(f"Target Tensor Shape:  {first_batch.target_word.shape}") # expect: [4]
 print(f"Context Tensor Shape: {first_batch.context.shape}")     # expect: [4, Max_Context_Len]
 
+# %%
+######Sana's attempt #######
+
+from collections import namedtuple
+Batch = namedtuple('Batch', ['target_word', 'context'])
+
+def batcher(dataset, word_to_idx, batch_size=8):
+    # iterate over the dataset
+    for i in range(0, len(dataset), batch_size):
+            
+    # select a batch of size `batch_size`
+        batch_data = dataset[i:i+batch_size]
+        batch_targets = []
+        batch_contexts = []
+        max_len = 0
+    
+    # translate batch to integers using `word_to_idx`
+        for center_word, context_words in batch_data:
+
+            #skip words not in vocabulary
+            if center_word not in word_to_idx:
+                continue
+
+            target_idx = word_to_idx[center_word]
+            context_idx = [word_to_idx[w] for w in context_words if w in word_to_idx]
+
+            if len(context_idx) == 0:
+                continue
+
+            batch_targets.append(target_idx)
+            batch_contexts.append(context_idx)
+
+    # add padding to the context
+            max_len = max(max_len, len(context_idx))
+
+        padded_context = []
+        for ctx in batch_contexts:
+            #pad with 0 
+            padded = ctx + [word_to_idx['<pad>']] * (max_len - len(ctx))
+            padded_context.append(padded)
+    # transform the batch to a pytorch tensor
+        target_tensor = torch.tensor(batch_targets, dtype=torch.long)
+        context_tensor = torch.tensor(padded_context, dtype = torch.long)
+    
+    # return the dataset of batches/indiviual batches 
+    batch = Batch(target_tensor, context_tensor)
+    yield batch
+
+print(f"Total items in dataset: {len(all_data)}")
+
+# create the generator
+
+batch_gen = batcher(all_data, word_to_idx, batch_size=8)
+
+# grab just the very first batch
+batch = next(batch_gen)
+print(batch)
+
+print(f"Target Tensor Shape:  {batch.target_word.shape}") # expect: [4]
+print(f"Context Tensor Shape: {batch.context.shape}")
+
 # %% [markdown]
 # We lower-cased all tokens above. Give some reasons why this is a good idea, and why it may be harmful to our embeddings.
 #
 # [2 marks]
 
 # %%
+### Good idea:-
+# Reduces vocabulary size:
+Lowercasing merges words like "The" and "the" into a single token. This reduces the vocabulary size and makes training more efficient.
+# Improves Statistical reliablity:
+Combining different case forms increases the frequency of words(e.g.., "The" and "the"), leading to more stable and better-learned embeddings.
+### Why it maybe Harmful:-
+# Loss of semantic distinctions:
+Lowercasing removes differences between proper nouns and common words, for example "George" (a person) vs "george" (less meaningful or rare form). This can reduce the quality of embeddings.
+# Loss of important linguistic signals:
+Capitalization often indicates important enitites, such as "Congress" (an institution) vs "congress". Lowercasing removes this information, making it harder for the model to distinguis such meanings.
+
 
 # %% [markdown]
 # ## Word embeddings model
@@ -644,10 +808,44 @@ lm_hyperparameters = {'epochs':3,
                       'output_dim':128}
 
 # %%
-data_path = 'wiki-corpus.txt'
-def get_data():
-    # your code here, roughly the same as for the word2vec dataloader
+#mamitha s - draft.
 
+data_path = 'data/wiki-corpus.50000.txt'
+def get_data(data_path, min_freq=4):
+    # your code here, roughly the same as for the word2vec dataloader
+    all_sentences = []
+    counter = Counter()
+    all_data = []
+
+    with open(data_path) as f:
+        for line in f:
+            tokens = line.strip().split()
+            counter.update(tokens)
+            all_sentences.append(tokens)
+
+    word_to_idx = {
+        '<pad>': 0,  
+        '<unk>': 1, 
+        '<start>': 2,
+        '<end>': 3
+    }
+
+    current_idx = 4  # start indexing from 4 since others are reserved 
+    for word,freq in counter.items():
+        if freq>=min_freq and word not in word_to_idx:
+            word_to_idx[word] = current_idx
+            current_idx += 1
+
+    
+    for item in all_sentences:
+        item = ["<start>"]+item+["<end>"]
+        encoded = [word_to_idx.get(t, 1) for t in item]
+        all_data.append(encoded)
+    return all_data, word_to_idx
+
+all_data, word_to_idx = get_data(data_path)
+
+    
 
 # %%
 class LM_withLSTM(nn.Module):
