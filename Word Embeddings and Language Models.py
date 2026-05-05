@@ -328,19 +328,28 @@ print(list(word_to_idx.items())[:10])
 #
 # [2 marks]
 
-# %%
-
-### It is good:-
-# Computational efficiency: 
-It reduces training time and memory usage, making it feasible to train models quickly.
-# Noise reduction: 
-Since the sentences are randomnly sampled from the entire wikipedia corpus, it still captures a wide range of topics and linguistic contexts.
-### It is bad:-
-# Loss of information:- 
-50,000 sentences may not cover rare words, topics, or linguistic patterns, leading to weaker or incomplete word representaions.
-# Sampling bias: 
-Even if random, the sample might not fully represent the diversity of wikipedia, whcih can affect the quality and generalization of the learned embeddings.
-    
+# %% [markdown]
+#
+# ## It is good
+#
+# ### Computational efficiency:
+#
+# It reduces training time and memory usage, making it feasible to train models quickly.
+#
+# ### Noise reduction:
+#
+# Since the sentences are randomnly sampled from the entire wikipedia corpus, it still captures a wide range of topics and linguistic contexts.
+#
+# ## It is bad
+#
+# ### Loss of information
+#
+# 50,000 sentences may not cover rare words, topics, or linguistic patterns, leading to weaker or incomplete word representaions.
+#
+# ### Sampling bias:
+#
+# Even if random, the sample might not fully represent the diversity of wikipedia, whcih can affect the quality and generalization of the learned embeddings.
+#
 
 # %% [markdown]
 # ## Loading data
@@ -518,18 +527,27 @@ print(f"Context Tensor Shape: {batch.context.shape}")
 #
 # [2 marks]
 
-# %%
-### Good idea:-
-# Reduces vocabulary size:
-Lowercasing merges words like "The" and "the" into a single token. This reduces the vocabulary size and makes training more efficient.
-# Improves Statistical reliablity:
-Combining different case forms increases the frequency of words(e.g.., "The" and "the"), leading to more stable and better-learned embeddings.
-### Why it maybe Harmful:-
-# Loss of semantic distinctions:
-Lowercasing removes differences between proper nouns and common words, for example "George" (a person) vs "george" (less meaningful or rare form). This can reduce the quality of embeddings.
-# Loss of important linguistic signals:
-Capitalization often indicates important enitites, such as "Congress" (an institution) vs "congress". Lowercasing removes this information, making it harder for the model to distinguis such meanings.
-
+# %% [markdown]
+# ## Good idea
+#
+# ### Reduces vocabulary size
+#
+# Lowercasing merges words like "The" and "the" into a single token. This reduces the vocabulary size and makes training more efficient.
+#
+# ### Improves Statistical reliablity
+#
+# Combining different case forms increases the frequency of words(e.g.., "The" and "the"), leading to more stable and better-learned embeddings.
+#
+# ## Why it maybe Harmful
+#
+# ### Loss of semantic distinctions
+#
+# Lowercasing removes differences between proper nouns and common words, for example "George" (a person) vs "george" (less meaningful or rare form). This can reduce the quality of embeddings.
+#
+# ### Loss of important linguistic signals:
+#
+# Capitalization often indicates important enitites, such as "Congress" (an institution) vs "congress". Lowercasing removes this information, making it harder for the model to distinguis such meanings.
+#
 
 # %% [markdown]
 # ## Word embeddings model
