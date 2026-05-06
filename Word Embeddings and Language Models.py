@@ -610,12 +610,12 @@ class CBOWModel(nn.Module):
 # The next step is to train a model. First we define what (hyper)parameters we will use, i.e. settings that affect how the model will be trained. You can change these and see what happens with training, for example when *developing* your model you can use a batch size of 2 and a very low dimensionality (say 10) to speed things up. For training your final target model, use batch sizes of [8,16,32,64], and embedding dimensionalities [128,256].
 
 # %%
-word_embeddings_hyperparameters = {'epochs': 10,
+word_embeddings_hyperparameters = {'epochs': 3,
                                    # 'batch_size': 16,
                                    'batch_size': 512,
                                    'learning_rate': 0.001,
-                                    'embedding_dim': 128}
-                                   #'embedding_dim': 10}
+                                    # 'embedding_dim': 128}
+                                   'embedding_dim': 10}
 
 # %% [markdown]
 # Train your model. Iterate over the dataset, get outputs from your model, calculate loss and backpropagate.
@@ -841,10 +841,10 @@ scored_pairs = [
 ]
 
 # BEST 10 (smallest error)
-best_10 = sorted(scored_pairs, key=lambda x: x[4])[:10]
+best_10 = sorted(scored_pairs, key=lambda x: x[4], reverse=True)[:10]
 
 # WORST 10 (largest error)
-worst_10 = sorted(scored_pairs, key=lambda x: x[4], reverse=True)[:10]
+worst_10 = sorted(scored_pairs, key=lambda x: x[4])[:10]
 
 
 # -----------------------------
@@ -1098,7 +1098,9 @@ for epoch in range(lm_hyperparameters['epochs']):
         total_loss += loss.item()
 
         # print average loss for the epoch
-        print(total_loss / (i + 1), end='\r')
+        # print(total_loss / (i + 1), end='\r')
+        print(
+            f"Epoch {epoch+1} / {total_epochs} | Batch {i} / {total_batches} | Avg Loss: {total_loss/(i+1):.4f}", end='\r')
 
         # compute gradients
         loss.backward()
@@ -1156,6 +1158,7 @@ for epoch in range(lm_hyperparameters['epochs']):
 
 # %%
 # your code goes here
+#evaluate_model - done
 import json
 
 def evaluate_model(path, vocab, model):
@@ -1170,23 +1173,23 @@ def evaluate_model(path, vocab, model):
             bad_s = data['sentence_bad']
 
             # the data is tokenized as whitespace
-            tok_good_s = ...
-            tok_bad_s = ...
+            tok_good_s = ['<start>'] + good_s.split() + ['<end>']
+            tok_bad_s = ['<start>'] + bad_s.split() + ['<end>']
 
             # encode your words as integers using the vocab from the dataloader, size is (S)
             # we use unsqueeze to create the batch dimension
             # in this case our input is only ONE batch, so the size of the tensor becomes:
             # (S) -> (1, S) as the model expects batches
-            enc_good_s = torch.tensor([_ for x in tok_good_s], device=device).unsqueeze(0)
-            enc_bad_s = torch.tensor([_ for x in tok_bad_s], device=device).unsqueeze(0)
+            enc_good_s = torch.tensor([vocab.get(x, 1) for x in tok_good_s], device=device).unsqueeze(0)
+            enc_bad_s = torch.tensor([vocab.get(x, 1) for x in tok_bad_s], device=device).unsqueeze(0)
 
             # pass your encoded sentences to the model and predict the next tokens
-            good_s = LM_withLSTM(enc_good_s)
-            bad_s = LM_withLSTM(enc_bad_s)
+            good_s = lm_model(enc_good_s)
+            bad_s = lm_model(enc_bad_s)
 
             # get probabilities with softmax
-            gs_probs = F.softmax(...)
-            bs_probs = F.softmax(...)
+            gs_probs = F.softmax(good_s_output, dim=-1)
+            bs_probs = F.softmax(good_s_output, dim=-1)
 
             # select the probability of the gold tokens
             gs_sent_prob = find_token_probs(gs_probs, enc_good_s)
