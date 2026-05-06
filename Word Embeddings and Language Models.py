@@ -452,7 +452,8 @@ for epoch in range(word_embeddings_hyperparameters['epochs']):
         # print average loss for the epoch
         # print(total_loss/(i+1), end='\r')
         print(
-            f"Epoch {epoch+1} / {total_epochs} | Batch {i} / {total_batches} | Avg Loss: {total_loss/(i+1):.4f}", end='\r')
+            f"Epoch {epoch+1} / {total_epochs} | Batch {i} / {total_batches} | Avg Loss: {total_loss/(i+1):.4f}", end='\r'
+        )
 
         # compute gradients
         loss.backward()
@@ -685,85 +686,94 @@ for w1, w2, h, m, err in worst_10:
 
 # %%
 # you can change these numbers to suit your needs as before
-lm_hyperparameters = {'epochs':2,
-                      #'epochs': 3,
-                      #'batch_size':16,
-                      'batch_size' : 4,
-                      'learning_rate':0.001,
-                      'embedding_dim':64,
-                      #'embedding_dim':128,
-                      #'output_dim': 128
-                      'output_dim':64}
+lm_hyperparameters = {'epochs': 3,
+                      # 'batch_size':16,
+                      'batch_size': 512,
+                      'learning_rate': 0.001,
+                      # 'embedding_dim':128,
+                      'embedding_dim': 10,
+                      # 'output_dim': 128
+                      'output_dim': 64}
 
 # %%
-#mamitha s - Language modelling - data loader and batcher.
-
 from collections import Counter
 from collections import namedtuple
 
-data_path = 'data/wiki-corpus.50000.txt'
+
+data_path = './data/wiki-corpus.50000.txt'
 Batch = namedtuple('Batch', ['sentence'])
 
+
 def LM_batcher(dataset, word_to_idx, batch_size=8):
-    pad_id = word_to_idx.get('<pad>',0)    
-    for i in range(0,len(dataset), batch_size):
-        batch_data = dataset[i: i + batch_size]        
+    pad_id = word_to_idx.get('<pad>', 0)
+
+    for i in range(0, len(dataset), batch_size):
+        batch_data = dataset[i: i + batch_size]
         max_len = max(len(s) for s in batch_data)
         padded_batch = []
+
         for s in batch_data:
-            padded = s +[pad_id]*(max_len-len(s))
-            padded_batch.append(padded)  
-        sentence_tensor = torch.tensor(padded_batch,dtype=torch.long)
+            padded = s + [pad_id]*(max_len-len(s))
+            padded_batch.append(padded)
+
+        sentence_tensor = torch.tensor(padded_batch, dtype=torch.long)
         yield Batch(sentence=sentence_tensor)
-    
+
+
 def get_data(data_path, min_freq=4):
     # your code here, roughly the same as for the word2vec dataloader
     all_sentences = []
     counter = Counter()
     all_data = []
     MAX_LEN = 30
+
     with open(data_path) as f:
         for line in f:
             tokens = line.strip().split()
             counter.update(tokens)
             all_sentences.append(tokens)
+
     word_to_idx = {
-        '<pad>': 0,  
-        '<unk>': 1, 
+        '<pad>': 0,
+        '<unk>': 1,
         '<start>': 2,
         '<end>': 3
     }
-    current_idx = 4  # start indexing from 4 since others are reserved 
-    for word,freq in counter.items():
-        if freq>=min_freq and word not in word_to_idx:
+
+    current_idx = 4  # start indexing from 4 since others are reserved
+
+    for word, freq in counter.items():
+        if freq >= min_freq and word not in word_to_idx:
             word_to_idx[word] = current_idx
-            current_idx += 1  
-            
+            current_idx += 1
+
     for item in all_sentences:
         item = item[:MAX_LEN]
         item = ["<start>"]+item+["<end>"]
         encoded = []
+
         for t in item:
             idx = word_to_idx.get(t, 1)
             encoded.append(idx)
-        all_data.append(encoded)
-    dataset = LM_batcher(all_data, word_to_idx)
-    return dataset, word_to_idx
 
-dataset, word_to_idx = get_data(data_path)
-first_batch = next(iter(dataset))
+        all_data.append(encoded)
+
+    return all_data, word_to_idx
 
 
 # %%
-# Yitong's attempt
-
 class LM_withLSTM(nn.Module):
     def __init__(self, num_embeddings, embedding_dim, hidden_dim):
         super(LM_withLSTM, self).__init__()
         # embedding layer: maps each word index to a vector
-        self.embeddings = nn.Embedding(num_embeddings, embedding_dim, padding_idx=0)
+        self.embeddings = nn.Embedding(
+            num_embeddings, embedding_dim, padding_idx=0
+        )
         # LSTM layer: processes the sequence and produces a hidden state at each step
-        self.LSTM = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim, batch_first=True)
+        self.LSTM = nn.LSTM(
+            input_size=embedding_dim,
+            hidden_size=hidden_dim, batch_first=True
+        )
         # linear layer: predicts which word comes next from the hidden state
         self.predict_word = nn.Linear(hidden_dim, num_embeddings)
 
@@ -785,26 +795,36 @@ class LM_withLSTM(nn.Module):
 
 
 # %%
-# Yitong's attempt
-
 # load data
-dataset, vocab = get_data(data_path)
+all_data, vocab = get_data(data_path)
+
+batch_size = lm_hyperparameters['batch_size']
+total_batches = (len(all_data) + batch_size - 1) // batch_size
+
+total_epochs = lm_hyperparameters['epochs']
 
 # build model and construct loss/optimizer
-lm_model = LM_withLSTM(len(vocab),
-                       lm_hyperparameters['embedding_dim'],
-                       lm_hyperparameters['output_dim'])
+lm_model = LM_withLSTM(
+    len(vocab),
+    lm_hyperparameters['embedding_dim'],
+    lm_hyperparameters['output_dim']
+)
 lm_model.to(device)
 
 loss_fn = nn.CrossEntropyLoss()
-optimizer = optim.Adam(lm_model.parameters(), lr=lm_hyperparameters['learning_rate'])
+optimizer = optim.Adam(
+    lm_model.parameters(),
+    lr=lm_hyperparameters['learning_rate']
+)
 
 # start training loop
 for epoch in range(lm_hyperparameters['epochs']):
-    dataset, vocab = get_data(data_path)
     total_loss = 0
-    for i, batch in enumerate(dataset): 
-        
+
+    dataset_generator = LM_batcher(all_data, vocab, batch_size)
+
+    for i, batch in enumerate(dataset_generator):
+
         # the strucure for each BATCH is:
         # <start>, w0, ..., wn, <end>
         # each batch is one encoded sentence, convert to tensor (1, seq_len)
@@ -839,7 +859,12 @@ for epoch in range(lm_hyperparameters['epochs']):
             break
 
         total_loss += loss.item()
-        
+
+        # print average loss for the epoch
+        print(
+            f"Epoch {epoch+1} / {total_epochs} | Batch {i} / {total_batches} | Avg Loss: {total_loss/(i+1):.4f}", end='\r'
+        )
+
         # compute gradients
         loss.backward()
         torch.nn.utils.clip_grad_norm_(lm_model.parameters(), 5.0)
@@ -847,12 +872,8 @@ for epoch in range(lm_hyperparameters['epochs']):
         # update parameters
         optimizer.step()
 
-        # reset gradients      
+        # reset gradients
         optimizer.zero_grad()
-
-    # print average loss for the epoch
-    print(f"Epoch {epoch+1} Average Loss: {total_loss / (i + 1):.4f}")
-
 
     print()
 
@@ -956,7 +977,7 @@ def find_token_probs(model_probs, encoded_sentece):
     sentence_prob = torch.sum(torch.log(torch.stack(probs) + 1e-10))
     return sentence_prob
 
-path = 'data/existential_there_quantifiers_1.jsonl'
+path = './data/existential_there_quantifiers_1.jsonl'
 accuracy = evaluate_model(path, word_to_idx, lm_model)
 
 print('Final accuracy:')
@@ -997,18 +1018,18 @@ print(np.round(np.mean(accuracy), 3))
 #
 # [2 marks]
 
-# %%
-To sentence- level accuracy used in BLiMP, language models can also be evaluated 
-
-using metrics such as perplexity, which measure how well the model predicts unseen
-
-text, token-level accuracy for next-word prediction, and BLEU score for generated 
-
-text quality. For embedding models, cosine similarity and correlation-based metrics
-
-such as Pearson correlation (as used in WordSim353) are commonly applied.
-    
-
+# %% [markdown]
+# To sentence- level accuracy used in BLiMP, language models can also be evaluated 
+#
+# using metrics such as perplexity, which measure how well the model predicts unseen
+#
+# text, token-level accuracy for next-word prediction, and BLEU score for generated 
+#
+# text quality. For embedding models, cosine similarity and correlation-based metrics
+#
+# such as Pearson correlation (as used in WordSim353) are commonly applied.
+#     
+#
 
 # %% [markdown]
 # # Literature
