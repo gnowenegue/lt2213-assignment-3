@@ -348,10 +348,6 @@ import torch.optim as optim
 # [7 marks]
 
 # %%
-# # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # EUGENE'S ATTEMPT # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # #
-
 class CBOWModel(nn.Module):
     def __init__(self, num_embeddings, embedding_dim):
         super(CBOWModel, self).__init__()
@@ -360,14 +356,17 @@ class CBOWModel(nn.Module):
         self.embeddings = nn.Embedding(
             num_embeddings, embedding_dim, padding_idx=0
         )
+
         # a transformation that predicts a word from the vocabulary
         self.prediction = nn.Linear(embedding_dim, num_embeddings)
 
     def forward(self, context):
         # translate a batch to embeddings
         embedded_context = self.embeddings(context)
+
         # reduce dimensions of the embeddings
         projection = self.projection_function(embedded_context)
+
         # predict the target word from the vocabulary
         predictions = self.prediction(projection)
 
@@ -388,12 +387,12 @@ class CBOWModel(nn.Module):
 # The next step is to train a model. First we define what (hyper)parameters we will use, i.e. settings that affect how the model will be trained. You can change these and see what happens with training, for example when *developing* your model you can use a batch size of 2 and a very low dimensionality (say 10) to speed things up. For training your final target model, use batch sizes of [8,16,32,64], and embedding dimensionalities [128,256].
 
 # %%
-word_embeddings_hyperparameters = {'epochs': 10,
+word_embeddings_hyperparameters = {'epochs': 3,
                                    # 'batch_size': 16,
                                    'batch_size': 512,
                                    'learning_rate': 0.001,
-                                    'embedding_dim': 128}
-                                   #'embedding_dim': 10}
+                                   # 'embedding_dim': 128}
+                                   'embedding_dim': 10}
 
 # %% [markdown]
 # Train your model. Iterate over the dataset, get outputs from your model, calculate loss and backpropagate.
@@ -403,10 +402,6 @@ word_embeddings_hyperparameters = {'epochs': 10,
 # [3 marks]
 
 # %%
-# # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # EUGENE'S ATTEMPT # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # #
-
 batch_size = word_embeddings_hyperparameters['batch_size']
 total_batches = (len(all_data) + batch_size - 1) // batch_size
 
