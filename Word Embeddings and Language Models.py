@@ -372,6 +372,10 @@ print(list(word_to_idx.items())[:10])
 # [4 marks]
 
 # %%
+# # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # Yitong'S ATTEMPT # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # #
+
 from collections import namedtuple
 Batch = namedtuple('Batch', ['target_word', 'context'])
 
@@ -532,7 +536,7 @@ print(f"Context Tensor Shape: {batch.context.shape}")
 #
 # ### Reduces vocabulary size
 #
-# Lowercasing merges words like "The" and "the" into a single token. This reduces the vocabulary size and makes training more efficient.
+# Lowercasing merges words like "The" and "the" into a single token. This reduces the vocabulary size and makes training more efficient. For example, after running our corpus_reader, the vocabulary contains 20,672 tokens. Without lowercasing this number would be even larger, since "The", "the" and "THE" would each get a separate entry.
 #
 # ### Improves Statistical reliablity
 #
@@ -542,12 +546,11 @@ print(f"Context Tensor Shape: {batch.context.shape}")
 #
 # ### Loss of semantic distinctions
 #
-# Lowercasing removes differences between proper nouns and common words, for example "George" (a person) vs "george" (less meaningful or rare form). This can reduce the quality of embeddings.
+# Lowercasing removes differences between proper nouns and common words, for example "George" (a person) vs "george" (less meaningful or rare form). This can reduce the quality of embeddings. Another example: "May" (a month or a name) vs "may" (a modal verb) have different meanings but would be forced into the same embedding after lowercasing.
 #
 # ### Loss of important linguistic signals:
 #
 # Capitalization often indicates important enitites, such as "Congress" (an institution) vs "congress". Lowercasing removes this information, making it harder for the model to distinguis such meanings.
-#
 
 # %% [markdown]
 # ## Word embeddings model
@@ -607,12 +610,12 @@ class CBOWModel(nn.Module):
 # The next step is to train a model. First we define what (hyper)parameters we will use, i.e. settings that affect how the model will be trained. You can change these and see what happens with training, for example when *developing* your model you can use a batch size of 2 and a very low dimensionality (say 10) to speed things up. For training your final target model, use batch sizes of [8,16,32,64], and embedding dimensionalities [128,256].
 
 # %%
-word_embeddings_hyperparameters = {'epochs': 3,
+word_embeddings_hyperparameters = {'epochs': 10,
                                    # 'batch_size': 16,
                                    'batch_size': 512,
                                    'learning_rate': 0.001,
-                                   # 'embedding_dim': 128}
-                                   'embedding_dim': 10}
+                                    'embedding_dim': 128}
+                                   #'embedding_dim': 10}
 
 # %% [markdown]
 # Train your model. Iterate over the dataset, get outputs from your model, calculate loss and backpropagate.
@@ -727,29 +730,37 @@ def read_wordsim(path, vocab, embeddings):
     model_sims = []
     with open(path) as f:
         for line in f:
-            word1, word2, score = f.split()
+            word1, word2, score = line.strip().split()
+
+            if word1 not in vocab or word2 not in vocab:
+                continue
 
             score = float(score)
             dataset_sims.append(score)
 
             # get the index for the word
-            word1_idx = ...
-            word2_idx = ...
+            word1_idx = vocab[word1]
+            word2_idx = vocab[word2]
 
             # get the embedding of the word
-            word1_emb = ...
-            word2_emb = ...
+            word1_emb = embeddings(torch.tensor(word1_idx, device=device))
+            word2_emb = embeddings(torch.tensor(word2_idx, device=device))
 
             # compute cosine similarity, we'll use the version included in pytorch functional
             # https://pytorch.org/docs/master/generated/torch.nn.functional.cosine_similarity.html
-            cosine_similarity = F.cosine_similarity(...)
+            cosine_similarity = F.cosine_similarity(
+                word1_emb.unsqueeze(0),
+                word2_emb.unsqueeze(0)
+            )
 
             model_sims.append(cosine_similarity.item())
 
     return dataset_sims, model_sims
 
-path = 'wordsim_similarity_goldstandard.txt'
-data, model = read_wordsim(...)
+path = 'data/wordsim_similarity_goldstandard.txt'
+data, model = read_wordsim(
+    path, word_to_idx, cbow_model.embeddings
+)
 pearson_correlation = np.corrcoef(data, model)
 
 # the non-diagonals give the pearson correlation,
@@ -760,7 +771,16 @@ print(pearson_correlation)
 #
 # [3 marks]
 
-# %%
+# %% [markdown]
+# The model does not perform well, as indicated by the low and 
+# slightly negative Pearson correlation score. This shows that the
+# learned embeddings do not align with human judgements of word similarity. 
+# The poor performance is likely due to the limited training data, the use 
+# of a simplified CBOW model, and the absence of advanced techniques 
+# such as negative sampling.Additionally, averaging context words may lead to loss 
+# of important semantic information, resulting in weak word representaions.
+#
+#
 
 # %% [markdown]
 # Select the 10 best and 10 worst performing word pairs. Can you see any patterns that explain why *these* are the best and worst word pairs?
@@ -768,13 +788,107 @@ print(pearson_correlation)
 # [3 marks]
 
 # %%
+####### i had done this block of code only for 
+# understanding for the above question and write its answer.
+#  we can delete it later before submission. 
+
+
+def get_wordsim_pairs(path, vocab, embeddings):
+    pairs = []
+
+    with open(path, 'r', encoding='utf-8') as f:
+        for line in f:
+
+            word1, word2, score = line.strip().split()
+            score = float(score)
+
+            # skip unknown words
+            if word1 not in vocab or word2 not in vocab:
+                continue
+
+            w1_idx = vocab[word1]
+            w2_idx = vocab[word2]
+
+            # embeddings
+            w1 = embeddings(torch.tensor(w1_idx, device=device))
+            w2 = embeddings(torch.tensor(w2_idx, device=device))
+
+            # cosine similarity
+            sim = F.cosine_similarity(
+                w1.unsqueeze(0),
+                w2.unsqueeze(0)
+            ).item()
+
+            # store full info
+            pairs.append((word1, word2, score, sim))
+
+    return pairs
+
+
+# -----------------------------
+# RUN EVALUATION
+# -----------------------------
+path = "data/wordsim_similarity_goldstandard.txt"
+
+pairs = get_wordsim_pairs(path, word_to_idx, cbow_model.embeddings)
+
+# -----------------------------
+# compute ranking
+# -----------------------------
+scored_pairs = [
+    (w1, w2, human, model, abs(human - model))
+    for (w1, w2, human, model) in pairs
+]
+
+# BEST 10 (smallest error)
+best_10 = sorted(scored_pairs, key=lambda x: x[4])[:10]
+
+# WORST 10 (largest error)
+worst_10 = sorted(scored_pairs, key=lambda x: x[4], reverse=True)[:10]
+
+
+# -----------------------------
+# PRINT RESULTS
+# -----------------------------
+print("\n================ BEST 10 PAIRS ================\n")
+for w1, w2, h, m, err in best_10:
+    print(f"{w1:15} - {w2:15} | human: {h:.2f} | model: {m:.2f} | error: {err:.2f}")
+
+print("\n================ WORST 10 PAIRS ================\n")
+for w1, w2, h, m, err in worst_10:
+    print(f"{w1:15} - {w2:15} | human: {h:.2f} | model: {m:.2f} | error: {err:.2f}")
+
+# %% [markdown]
+# The best and worst performing word pairs were selected based on the 
+# absolute difference between human similarity scores and model-predicted cosine similarity.
+# The "best" pairs represnt cases where the model predictions are closest to human judgements, 
+# while the "worst" pairs show the largest disagreement.
+# The best performing pairs are mostly weakly related or unrelated words(e.g..., king-cabbage,
+# drink-ear), where both human scores and model predictions are low, resulting in small 
+# errors. in contrast, the worst-performing pairs include strongly related words such as 
+# money-cash, car-automobile, and king-queen, where humans assign high similarity but the 
+# model predicts low similarity.
+#
+# Overall, this shows that the CBOW model struggles to capture true semantic similarity
+# and performs better on unrelated word pairs than on synonym-like or conceptually related words.
+# This is due to its simplified architecture and reliance on contextual co-occurence rather 
+# than deep semantic understanding.
 
 # %% [markdown]
 # Suggest some ways of improving the model for the task in WordSim353.
 #
 # [3 marks]
 
-# %%
+# %% [markdown]
+# The model can be improved by using larger datasets, which provide more 
+# diverse contexts and help the model learn richer semantic relationships 
+# between words. More advanced training objectives, such as negative sampling
+# or hierarchical softmax, can improve efficiency and produce better quality embeddings. 
+# In addition, higher-dimensional embeddings allows the model to capture more nuanced semantic 
+# relationships compared to small vectors. Alternative architectures such as Skip-gram,
+# may also performs better on semantic similarity tasks, as they predict context words 
+# from a target word and  handle rare words more effectively. All of these improvements help 
+# the model better capture semantic similarity in WordSim353.
 
 # %% [markdown]
 # Sentiment analysis is a (downstream, i.e. a follow-up task) where a model is like this might be used for training. It involves determining whether a sentence is positive or negative.
@@ -783,7 +897,29 @@ print(pearson_correlation)
 #
 # [3 marks]
 
-# %%
+# %% [markdown]
+#
+# A sentiment analysis model can benefit from the embeddings learned
+# by our CBOW model because the embeddings capture general semantic 
+# similarity between words based on their contextual usage in 
+# Wikipedia. Words that appear in similar contexts, such as money 
+# and cash or car and automobile, are represented by similar vectors.
+# This can help a sentiment classifier generalize better to unseen 
+# text by grouping semantically related words together.
+#
+#
+# However, these embeddings may not perform well for sentiment 
+# analysis because the model is trained on general Wikipedia text
+# and learns contextual similarity rather than sentiment or polarity.
+# As a result, words that are semantically related but not 
+# sentiment-related, such as king and queen or football and soccer,
+# are placed close together in embedding space, even though they do 
+# not share sentiment information. Additionally, words with different 
+# emotional polarity may still appear in similar contexts, meaning 
+# the embeddings do not reliably distinguish positive and negative 
+# meaning. Therefore, while the embeddings capture useful semantic 
+# relationships, they are not specifically suitable for sentiment
+# classification tasks.
 
 # %% [markdown]
 # # Language modeling
@@ -826,67 +962,96 @@ lm_hyperparameters = {'epochs':3,
                       'output_dim':128}
 
 # %%
-#mamitha s - draft.
+#mamitha s - Language modelling - data loader and batcher.
+
+from collections import Counter
+from collections import namedtuple
 
 data_path = 'data/wiki-corpus.50000.txt'
+Batch = namedtuple('Batch', ['sentence'])
+
+def LM_batcher(dataset, word_to_idx, batch_size=8):
+    pad_id = word_to_idx.get('<pad>',0)    
+    for i in range(0,len(dataset), batch_size):
+        batch_data = dataset[i: i + batch_size]        
+        max_len = max(len(s) for s in batch_data)
+        padded_batch = []
+        for s in batch_data:
+            padded = s +[pad_id]*(max_len-len(s))
+            padded_batch.append(padded)  
+        sentence_tensor = torch.tensor(padded_batch,dtype=torch.long)
+        yield Batch(sentence=sentence_tensor)
+    
 def get_data(data_path, min_freq=4):
     # your code here, roughly the same as for the word2vec dataloader
     all_sentences = []
     counter = Counter()
     all_data = []
-
     with open(data_path) as f:
         for line in f:
             tokens = line.strip().split()
             counter.update(tokens)
             all_sentences.append(tokens)
-
     word_to_idx = {
         '<pad>': 0,  
         '<unk>': 1, 
         '<start>': 2,
         '<end>': 3
     }
-
     current_idx = 4  # start indexing from 4 since others are reserved 
     for word,freq in counter.items():
         if freq>=min_freq and word not in word_to_idx:
             word_to_idx[word] = current_idx
-            current_idx += 1
-
-    
+            current_idx += 1   
     for item in all_sentences:
         item = ["<start>"]+item+["<end>"]
-        encoded = [word_to_idx.get(t, 1) for t in item]
+        encoded = []
+        for t in item:
+            idx = word_to_idx.get(t, 1)
+            encoded.append(idx)
         all_data.append(encoded)
-    return all_data, word_to_idx
+    dataset = LM_batcher(all_data, word_to_idx)
+    return dataset, word_to_idx
 
-all_data, word_to_idx = get_data(data_path)
+dataset, word_to_idx = get_data(data_path)
+first_batch = next(iter(dataset))
 
-    
 
 # %%
+# Yitong's attempt
+
 class LM_withLSTM(nn.Module):
-    def __init__(...):
+    def __init__(self, num_embeddings, embedding_dim, hidden_dim):
         super(LM_withLSTM, self).__init__()
-        self.embeddings = ...
-        self.LSTM = nn.LSTM(self, input_size=..., hidden_size=...)
-        self.predict_word = ...
+        # embedding layer: maps each word index to a vector
+        self.embeddings = nn.Embedding(num_embeddings, embedding_dim, padding_idx=0)
+        # LSTM layer: processes the sequence and produces a hidden state at each step
+        self.LSTM = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim, batch_first=True)
+        # linear layer: predicts which word comes next from the hidden state
+        self.predict_word = nn.Linear(hidden_dim, num_embeddings)
 
     def forward(self, seq):
+        # seq shape: (batch_size, seq_len)
         # extract embeddings for the sentence
-        embedded_seq = ...
-        # compute contextual representations
+        embedded_seq = self.embeddings(seq)
+        # embedded_seq shape: (batch_size, seq_len, embedding_dim)
+
+        # compute contextual representations with LSTM
         timestep_reprentation, *_ = self.LSTM(embedded_seq)
+        # timestep_reprentation shape: (batch_size, seq_len, hidden_dim)
+
         # predict a token from the vocabulary at each timestep
-        predicted_words = ...
+        predicted_words = self.predict_word(timestep_reprentation)
+        # predicted_words shape: (batch_size, seq_len, num_embeddings)
 
         return predicted_words
 
 
 # %%
+# Yitong's attempt
+
 # load data
-dataset, vocab = get_data(...)
+dataset, vocab = get_data(data_path)
 
 # build model and construct loss/optimizer
 lm_model = LM_withLSTM(len(vocab),
@@ -894,17 +1059,18 @@ lm_model = LM_withLSTM(len(vocab),
                        lm_hyperparameters['output_dim'])
 lm_model.to(device)
 
-loss_fn = CrossEntropyLoss()
-optimizer = optim.Adam(cbow_model.parameters(), lr=lm_hyperparameters['lr'])
+loss_fn = nn.CrossEntropyLoss()
+optimizer = optim.Adam(lm_model.parameters(), lr=lm_hyperparameters['learning_rate'])
 
 # start training loop
-total_loss = 0
 for epoch in range(lm_hyperparameters['epochs']):
+    total_loss = 0
     for i, batch in enumerate(dataset):
 
         # the strucure for each BATCH is:
         # <start>, w0, ..., wn, <end>
-        sentence = batch.sentence
+        # each batch is one encoded sentence, convert to tensor (1, seq_len)
+        sentence = torch.tensor(batch, dtype=torch.long).unsqueeze(0).to(device)
 
         # when training the model, at each input we predict the *NEXT* token
         # consequently there is nothing to predict when we give the model
@@ -914,7 +1080,7 @@ for epoch in range(lm_hyperparameters['epochs']):
         # tip: use pytorch indexing/slicing (same as numpy)
         # (https://pytorch.org/tutorials/beginner/basics/tensorqs_tutorial.html#operations-on-tensors)
         # (https://jhui.github.io/2018/02/09/PyTorch-Basic-operations/)
-        input_sentence = ...
+        input_sentence = sentence[:, :-1]
 
         # send your batch of sentences to the model
         output = lm_model(input_sentence)
@@ -923,25 +1089,26 @@ for epoch in range(lm_hyperparameters['epochs']):
         # our dataset again. On timestep t, we evaluate on token t+1. That is,
         # we never predict the <start> token ;) so this time, we select all but the first
         # token from sentences (that is, all the tokens that we predict)
-        gold_data = ...
+        gold_data = sentence[:, 1:]
 
         # the shape of the output and sentence variable need to be changed,
         # for the loss function. Details are in the documentation.
         # You can use .view(...,...) to reshape the tensors
-        loss = loss_fn(...)
+        loss = loss_fn(output.view(-1, len(vocab)), gold_data.view(-1))
         total_loss += loss.item()
 
         # print average loss for the epoch
-        print(total_loss/(i+1), end='\r')
+        print(total_loss / (i + 1), end='\r')
 
         # compute gradients
-        ...
+        loss.backward()
 
         # update parameters
-        ...
+        optimizer.step()
 
         # reset gradients
-        ...
+        optimizer.zero_grad()
+
     print()
 
 # %% [markdown]
@@ -1056,14 +1223,24 @@ print(np.round(np.mean(accuracy), 3))
 #
 # [3 marks]
 
-# %%
+# %% [markdown]
+# 55% is only slightly better than chance, so it is hard to call this good performance without context. The key question is whether it actually beats a simple baseline.
+#
+# The most obvious baseline is a random baseline: for each pair, just randomly pick one of the two sentences. This gives 50% accuracy on average without any training at all. Our model at 55% does beat this, but only by a small margin, which suggests it has not learned much about the linguistic phenomenon being tested.
+#
+# A stricter baseline would be a sentence length baseline: always predict the shorter sentence as the acceptable one. If this also achieves around 55%, then the model has not really learned anything beyond what a trivial heuristic can do.
 
 # %% [markdown]
 # Suggest some improvements you could make to your language model.
 #
 # [3 marks]
 
-# %%
+# %% [markdown]
+# One straightforward improvement is to train for more epochs on more data. Our model only saw 50,000 Wikipedia sentences, which is quite small. A larger and more diverse corpus would help the model learn better representations of rare words and unusual sentence structures.
+#
+# We could also use a deeper LSTM with multiple layers. Right now the model has a single LSTM layer, which limits how much context it can capture. Stacking two or three layers would give it more capacity to model longer dependencies.
+#
+# Another option is to initialise the embedding layer with the word vectors we already trained in the Word2Vec part of this assignment, rather than starting from random embeddings. Since those vectors already encode some semantic knowledge, the language model would start from a better position and likely converge faster.
 
 # %% [markdown]
 # Suggest some other metrics we can use to evaluate our system
@@ -1089,7 +1266,14 @@ print(np.round(np.mean(accuracy), 3))
 #
 # Write below your general thoughts, experiences, or reflections on how you worked on this lab.
 
-# %%
+# %% [markdown]
+# This lab was a good introduction to how word embeddings and language models actually work under the hood. Implementing CBOW from scratch made it much clearer why the projection step matters and how the model learns from context words.
+#
+# One thing that surprised us was how low the Pearson correlation turned out to be (around 0.019). Even after 10 epochs of training the embeddings did not align well with human similarity judgements. It made us realise that a small dataset like 50,000 Wikipedia sentences is really not enough for this kind of task, and that tricks like negative sampling would make a big practical difference.
+#
+# Working as a group helped because different people caught different bugs. For example, we noticed that putting unknown words into the same bucket as padding tokens is not a good idea, since they are conceptually different things. These kinds of small design decisions are easy to miss when working alone.
+#
+# The LSTM part was harder to get right than the CBOW part. Understanding that the input and target are just the same sentence shifted by one position took some time to click, but once it did the rest of the training loop made more sense.
 
 # %% [markdown]
 # ## Statement of contribution
