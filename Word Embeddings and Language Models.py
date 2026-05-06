@@ -922,68 +922,75 @@ for epoch in range(lm_hyperparameters['epochs']):
 
 # %%
 # your code goes here
-#evaluate_model - done
+# evaluate_model - done
 import json
+
 
 def evaluate_model(path, vocab, model):
 
     accuracy = []
     model.eval()
+
     with torch.no_grad():
+
         with open(path) as f:
-        # iterate over one pair of sentences at a time
+
+            # iterate over one pair of sentences at a time
             for line in f:
-            # load the data
+                # load the data
                 data = json.loads(line)
                 good_s = data['sentence_good']
                 bad_s = data['sentence_bad']
 
-            # the data is tokenized as whitespace
+                # the data is tokenized as whitespace
                 tok_good_s = ["<start>"] + good_s.strip().split() + ["<end>"]
                 tok_bad_s = ["<start>"] + bad_s.strip().split() + ["<end>"]
 
-            # encode your words as integers using the vocab from the dataloader, size is (S)
-            # we use unsqueeze to create the batch dimension
-            # in this case our input is only ONE batch, so the size of the tensor becomes:
-            # (S) -> (1, S) as the model expects batches
-                enc_good_s = torch.tensor([vocab.get(x, vocab['<unk>']) for x in tok_good_s], device=device).unsqueeze(0)
-                enc_bad_s = torch.tensor([vocab.get(x, vocab['<unk>']) for x in tok_bad_s], device=device).unsqueeze(0)
+                # encode your words as integers using the vocab from the dataloader, size is (S)
+                # we use unsqueeze to create the batch dimension
+                # in this case our input is only ONE batch, so the size of the tensor becomes:
+                # (S) -> (1, S) as the model expects batches
+                enc_good_s = torch.tensor(
+                    [vocab.get(x, vocab['<unk>']) for x in tok_good_s], device=device).unsqueeze(0)
+                enc_bad_s = torch.tensor(
+                    [vocab.get(x, vocab['<unk>']) for x in tok_bad_s], device=device).unsqueeze(0)
 
-            # pass your encoded sentences to the model and predict the next tokens
-                good_s = model(enc_good_s)
-                bad_s = model(enc_bad_s)
+                # pass your encoded sentences to the model and predict the next tokens
+                good_s = model(enc_good_s[:, :-1])
+                bad_s = model(enc_bad_s[:, :-1])
 
-            # get probabilities with softmax
+                # get probabilities with softmax
                 gs_probs = F.softmax(good_s, dim=-1)
                 bs_probs = F.softmax(bad_s, dim=-1)
 
-            # select the probability of the gold tokens
-                gs_sent_prob = find_token_probs(gs_probs, enc_good_s)
-                bs_sent_prob = find_token_probs(bs_probs, enc_bad_s)
+                # select the probability of the gold tokens
+                gs_sent_prob = find_token_probs(gs_probs, enc_good_s[:, 1:])
+                bs_sent_prob = find_token_probs(bs_probs, enc_bad_s[:, 1:])
 
-                accuracy.append(int(gs_sent_prob>bs_sent_prob))
+                accuracy.append(int(gs_sent_prob > bs_sent_prob))
 
         return accuracy
+
 
 def find_token_probs(model_probs, encoded_sentece):
     probs = []
 
     # iterate over the tokens in your encoded sentence
-    for token, gold_token in enumerate(encoded_sentece):
+    for token, gold_token in enumerate(encoded_sentece[0]):
         # select the probability of the gold tokens and save
         # hint: pytorch indexing is helpful here ;)
         prob = model_probs[0, token, gold_token]
         probs.append(prob)
+
     sentence_prob = torch.sum(torch.log(torch.stack(probs) + 1e-10))
-    return sentence_prob
+    return sentence_prob.item()
+
 
 path = './data/existential_there_quantifiers_1.jsonl'
 accuracy = evaluate_model(path, word_to_idx, lm_model)
 
 print('Final accuracy:')
 print(np.round(np.mean(accuracy), 3))
-
-
 
 
 # %% [markdown]
