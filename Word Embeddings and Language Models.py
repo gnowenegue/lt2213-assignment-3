@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: LT2213 Assignment 3
 #     language: python
-#     name: python3
+#     name: lt2213-assignment-3
 # ---
 
 # %% [markdown]
@@ -119,63 +119,6 @@ print(f"Using device: {decision}")
 
 # %%
 from collections import Counter
-data_path = 'data/wiki-corpus.50000.txt'
-WINDOW_SIZE = _
-def corpus_reader(data_path, window_size=4, min_freq=4):
-    all_data = []
-    vocabulary = set(['<pad>'])
-    counter = Counter()
-    with open(data_path) as f:
-        # go over the lines (sentences in the files)
-        for line in f:
-            line = line.strip()
-        # split sentences into tokens
-            tokens = line.split()
-        # save all indiviual words to the vocabulary
-            vocabulary.update(tokens)
-            counter.update(tokens)
-        # extract all (center word, context) with `window_size=4`, pairs from the sentence
-            for i, center_word in enumerate(tokens):
-                context = []
-                #left
-                for j in range(i-(window_size//2),i):
-                    if j>=0:
-                        context.append(tokens[j])
-                    else:
-                        context.append("<pad>")
-                #Right
-                for j in range(i+1,i+(window_size//2)+1):
-                    if j<len(tokens):
-                        context.append(tokens[j])
-                    else:
-                        context.append("<pad>")
-
-        # save (center word, context) pairs into a dataset
-                all_data.append((center_word, context))
-
-    # filter out words which does not occur often
-    temp = set()
-    for word in vocabulary:
-        if counter[word] >= min_freq:
-            temp.add(word)
-    vocabulary = temp
-
-    # create a mapping from words to integers.
-    # each word should have an unique integer mapped to it.
-    # use a dictionary for this.
-    word_to_idx = {}
-    for idx, word in enumerate(vocabulary):
-        word_to_idx[word] = idx
-    return all_data, word_to_idx
-
-all_data, word_to_idx = corpus_reader(data_path)
-
-# %%
-# # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # EUGENE'S ATTEMPT # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # #
-
-from collections import Counter
 
 
 data_path = './data/wiki-corpus.50000.txt'
@@ -191,12 +134,15 @@ def corpus_reader(data_path, window_size=4, min_freq=4):
         # go over the lines (sentences in the files)
         for line in f:
             line = line.strip()
-        # split sentences into tokens
+
+            # split sentences into tokens
             tokens = line.split()
-        # save all indiviual words to the vocabulary
+
+            # save all indiviual words to the vocabulary
             vocabulary.update(tokens)
             counter.update(tokens)
-        # extract all (center word, context) with `window_size=4`, pairs from the sentence
+
+            # extract all (center word, context) with `window_size=4`, pairs from the sentence
             half_window = window_size // 2
 
             for i, center_word in enumerate(tokens):
@@ -216,7 +162,8 @@ def corpus_reader(data_path, window_size=4, min_freq=4):
                         context_words.append(tokens[j])
                     # else:
                     #     context_words.append('<pad>')
-        # save (center word, context) pairs into a dataset
+
+                # save (center word, context) pairs into a dataset
                 all_data.append((center_word, context_words))
 
     # filter out words which does not occur often
@@ -253,75 +200,6 @@ all_data, word_to_idx = corpus_reader(data_path, WINDOW_SIZE)
 print(len(all_data))
 print(all_data[0])
 print(len(word_to_idx))
-
-# %%
-################## Sana's attempt ##############
-
-data_path = 'data/wiki-corpus.50000.txt'
-WINDOW_SIZE = 4
-def corpus_reader(data_path, window_size=4, min_freq=4):
-    all_data = []
-    vocabulary = set(['<pad>'])
-    #Dictionary to count frequency of each word
-    word_freq = {}
-
-    with open(data_path) as f:
-        sentences = []
-        # go over the lines (sentences in the files)
-        for line in f:
-            # split sentences into tokens
-            tokens = line.strip().split()
-
-            sentences.append(tokens)
-            # save all indiviual words to the vocabulary
-            for word in tokens:
-                vocabulary.add(word)
-                word_freq[word] = word_freq.get(word, 0) + 1
-
-    # Filter vocabulary
-    filtered_vocab = set(['<pad>'])
-    for word, freq in word_freq.items():
-        if freq >= min_freq:
-            filtered_vocab.add(word)
-
-    # extract all (center word, context) with `window_size=4`, pairs from the sentence
-
-    half_window = window_size // 2
-    for tokens in sentences:
-        for i, centre_word in enumerate(tokens):
-              #skip rare words
-            if centre_word not in filtered_vocab:
-                continue
-            context_words = []
-
-              #collect left context words
-
-            for j in range(max(0, i - half_window), i):
-                if tokens[j] in filtered_vocab:
-                    context_words.append(tokens[j])
-
-            #collect right context words
-
-            for j in range(i + 1, min(len(tokens), i + half_window + 1)):
-                if tokens[j] in filtered_vocab:
-                    context_words.append(tokens[j])
-
-
-    
-                # Only add if context is not empty
-            if context_words: 
-                all_data.append((centre_word, context_words))
-
-    # Create word_to_idx mapping
-    word_to_idx = {}
-    for idx, word in enumerate(filtered_vocab):
-        word_to_idx[word] = idx
-
-    return all_data, word_to_idx
-
-all_data, word_to_idx = corpus_reader(data_path, WINDOW_SIZE)
-print(all_data[:10])
-print(list(word_to_idx.items())[:10])
 
 # %% [markdown]
 # We sampled 50.000 senteces randomly from the *entire* wikipedia for our training data. Give some reasons why this is good, and why it might be bad. (*note*: We'll have a few questions like these, one or two reasons for and against is sufficient)
