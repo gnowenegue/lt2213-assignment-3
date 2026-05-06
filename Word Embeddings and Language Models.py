@@ -250,46 +250,6 @@ print(len(word_to_idx))
 # [4 marks]
 
 # %%
-# # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # Yitong'S ATTEMPT # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # #
-
-from collections import namedtuple
-Batch = namedtuple('Batch', ['target_word', 'context'])
-
-def batcher(dataset, word_to_idx, batch_size=8):
-    # iterate over the dataset
-    for i in range(0, len(dataset), batch_size):
-    # select a batch of size `batch_size`
-        batch_data = dataset[i : i + batch_size]
-        batch_targets = []
-        batch_contexts = []
-    # translate batch to integers using `word_to_idx`
-        for center_word, context_words in batch_data:
-            target_idx = word_to_idx.get(center_word, 0)
-            context_idx = [word_to_idx.get(w, 0) for w in context_words]
-
-            batch_targets.append(target_idx)
-            batch_contexts.append(context_idx)
-    # add padding to the context
-        max_len = max(len(c) for c in batch_contexts)
-        pad_id = word_to_idx.get('<pad>', 0)
-        for c in batch_contexts:
-            while len(c) < max_len:
-                c.append(pad_id)
-    # transform the batch to a pytorch tensor
-        target_tensor = torch.tensor(batch_targets, dtype=torch.long)
-        context_tensor = torch.tensor(batch_contexts, dtype=torch.long)
-    # return the dataset of batches/indiviual batches
-        batch = Batch(target_tensor, context_tensor)
-        yield batch
-
-
-# %%
-# # # # # # # # # # # # # # # # # # # # # # # # #
-# # # # # EUGENE'S ATTEMPT # # # # #
-# # # # # # # # # # # # # # # # # # # # # # # # #
-
 from collections import namedtuple
 Batch = namedtuple('Batch', ['target_word', 'context'])
 
@@ -302,7 +262,7 @@ def batcher(dataset, word_to_idx, batch_size=8):
         batch_targets = []
         batch_contexts = []
 
-    # translate batch to integers using `word_to_idx`
+        # translate batch to integers using `word_to_idx`
         for center_word, context_words in batch_data:
             # default to <unk> index if word not found
             target_idx = word_to_idx.get(center_word, 1)
@@ -311,7 +271,7 @@ def batcher(dataset, word_to_idx, batch_size=8):
             batch_targets.append(target_idx)
             batch_contexts.append(context_idx)
 
-    # add padding to the context
+        # add padding to the context
         max_len = max(len(c) for c in batch_contexts)
         pad_id = word_to_idx.get('<pad>', 0)
 
@@ -319,11 +279,11 @@ def batcher(dataset, word_to_idx, batch_size=8):
             while len(context) < max_len:
                 context.append(pad_id)  # pad with <pad> index
 
-    # transform the batch to a pytorch tensor
+        # transform the batch to a pytorch tensor
         target_tensor = torch.tensor(batch_targets, dtype=torch.long)
         context_tensor = torch.tensor(batch_contexts, dtype=torch.long)
 
-    # return the dataset of batches/indiviual batches
+        # return the dataset of batches/indiviual batches
         batch = Batch(target_word=target_tensor, context=context_tensor)
         yield batch
 
@@ -340,69 +300,9 @@ batch_gen = batcher(all_data, word_to_idx, batch_size=test_batch_size)
 first_batch = next(batch_gen)
 
 print("##### Batch Shape Check #####")
-print(f"Target Tensor Shape:  {first_batch.target_word.shape}") # expect: [4]
-print(f"Context Tensor Shape: {first_batch.context.shape}")     # expect: [4, Max_Context_Len]
-
-# %%
-######Sana's attempt #######
-
-from collections import namedtuple
-Batch = namedtuple('Batch', ['target_word', 'context'])
-
-def batcher(dataset, word_to_idx, batch_size=8):
-    # iterate over the dataset
-    for i in range(0, len(dataset), batch_size):
-            
-    # select a batch of size `batch_size`
-        batch_data = dataset[i:i+batch_size]
-        batch_targets = []
-        batch_contexts = []
-        max_len = 0
-    
-    # translate batch to integers using `word_to_idx`
-        for center_word, context_words in batch_data:
-
-            #skip words not in vocabulary
-            if center_word not in word_to_idx:
-                continue
-
-            target_idx = word_to_idx[center_word]
-            context_idx = [word_to_idx[w] for w in context_words if w in word_to_idx]
-
-            if len(context_idx) == 0:
-                continue
-
-            batch_targets.append(target_idx)
-            batch_contexts.append(context_idx)
-
-    # add padding to the context
-            max_len = max(max_len, len(context_idx))
-
-        padded_context = []
-        for ctx in batch_contexts:
-            #pad with 0 
-            padded = ctx + [word_to_idx['<pad>']] * (max_len - len(ctx))
-            padded_context.append(padded)
-    # transform the batch to a pytorch tensor
-        target_tensor = torch.tensor(batch_targets, dtype=torch.long)
-        context_tensor = torch.tensor(padded_context, dtype = torch.long)
-    
-    # return the dataset of batches/indiviual batches 
-    batch = Batch(target_tensor, context_tensor)
-    yield batch
-
-print(f"Total items in dataset: {len(all_data)}")
-
-# create the generator
-
-batch_gen = batcher(all_data, word_to_idx, batch_size=8)
-
-# grab just the very first batch
-batch = next(batch_gen)
-print(batch)
-
-print(f"Target Tensor Shape:  {batch.target_word.shape}") # expect: [4]
-print(f"Context Tensor Shape: {batch.context.shape}")
+print(f"Target Tensor Shape:  {first_batch.target_word.shape}")  # expect: [4]
+# expect: [4, Max_Context_Len]
+print(f"Context Tensor Shape: {first_batch.context.shape}")
 
 # %% [markdown]
 # We lower-cased all tokens above. Give some reasons why this is a good idea, and why it may be harmful to our embeddings.
