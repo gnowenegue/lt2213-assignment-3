@@ -498,8 +498,6 @@ for epoch in range(word_embeddings_hyperparameters['epochs']):
 # [4 marks]
 
 # %%
-############### Sana's attempt #############
-
 def read_wordsim(path, vocab, embeddings):
     dataset_sims = []
     model_sims = []
@@ -533,10 +531,11 @@ def read_wordsim(path, vocab, embeddings):
 
             pairs.append((word1, word2, score, cosine_similarity.item()))
 
-    return dataset_sims, model_sims , pairs
+    return dataset_sims, model_sims, pairs
+
 
 path = 'data/wordsim_similarity_goldstandard.txt'
-data, model,pairs = read_wordsim(
+data, model, pairs = read_wordsim(
     path, word_to_idx, cbow_model.embeddings
 )
 pearson_correlation = np.corrcoef(data, model)
@@ -549,11 +548,12 @@ scored_pairs = [
     for (w1, w2, human, model) in pairs
 ]
 
+# %%
 # BEST 10 (smallest error)
-best_10 = sorted(scored_pairs, key=lambda x: x[4])[:10]
+best_10 = sorted(scored_pairs, key=lambda x: x[4], reverse=True)[:10]
 
 # WORST 10 (largest error)
-worst_10 = sorted(scored_pairs, key=lambda x: x[4], reverse=True)[:10]
+worst_10 = sorted(scored_pairs, key=lambda x: x[4])[:10]
 
 
 # -----------------------------
@@ -562,7 +562,6 @@ worst_10 = sorted(scored_pairs, key=lambda x: x[4], reverse=True)[:10]
 print("\n================ BEST 10 PAIRS ================\n")
 for w1, w2, h, m, err in best_10:
     print(f"{w1:15} - {w2:15} | human: {h:.2f} | model: {m:.2f} | error: {err:.2f}")
-    #print(f"{w1:15} - {w2:15} | human: {h} | model: {m} | error: {err}")
 
 print("\n================ WORST 10 PAIRS ================\n")
 for w1, w2, h, m, err in worst_10:
