@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: LT2213 Assignment 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
-#     name: lt2213-assignment-3
+#     name: python3
 # ---
 
 # %% [markdown]
@@ -610,12 +610,12 @@ class CBOWModel(nn.Module):
 # The next step is to train a model. First we define what (hyper)parameters we will use, i.e. settings that affect how the model will be trained. You can change these and see what happens with training, for example when *developing* your model you can use a batch size of 2 and a very low dimensionality (say 10) to speed things up. For training your final target model, use batch sizes of [8,16,32,64], and embedding dimensionalities [128,256].
 
 # %%
-word_embeddings_hyperparameters = {'epochs': 3,
+word_embeddings_hyperparameters = {'epochs': 10,
                                    # 'batch_size': 16,
                                    'batch_size': 512,
                                    'learning_rate': 0.001,
-                                    # 'embedding_dim': 128}
-                                   'embedding_dim': 10}
+                                    'embedding_dim': 128}
+                                   #'embedding_dim': 10}
 
 # %% [markdown]
 # Train your model. Iterate over the dataset, get outputs from your model, calculate loss and backpropagate.
@@ -725,9 +725,12 @@ for epoch in range(word_embeddings_hyperparameters['epochs']):
 # [4 marks]
 
 # %%
+############### Sana's attempt #############
+
 def read_wordsim(path, vocab, embeddings):
     dataset_sims = []
     model_sims = []
+    pairs = []
     with open(path) as f:
         for line in f:
             word1, word2, score = line.strip().split()
@@ -755,16 +758,42 @@ def read_wordsim(path, vocab, embeddings):
 
             model_sims.append(cosine_similarity.item())
 
-    return dataset_sims, model_sims
+            pairs.append((word1, word2, score, cosine_similarity.item()))
+
+    return dataset_sims, model_sims , pairs
 
 path = 'data/wordsim_similarity_goldstandard.txt'
-data, model = read_wordsim(
+data, model,pairs = read_wordsim(
     path, word_to_idx, cbow_model.embeddings
 )
 pearson_correlation = np.corrcoef(data, model)
 
 # the non-diagonals give the pearson correlation,
 print(pearson_correlation)
+
+scored_pairs = [
+    (w1, w2, human, model, abs(human - model))
+    for (w1, w2, human, model) in pairs
+]
+
+# BEST 10 (smallest error)
+best_10 = sorted(scored_pairs, key=lambda x: x[4])[:10]
+
+# WORST 10 (largest error)
+worst_10 = sorted(scored_pairs, key=lambda x: x[4], reverse=True)[:10]
+
+
+# -----------------------------
+# PRINT RESULTS
+# -----------------------------
+print("\n================ BEST 10 PAIRS ================\n")
+for w1, w2, h, m, err in best_10:
+    print(f"{w1:15} - {w2:15} | human: {h:.2f} | model: {m:.2f} | error: {err:.2f}")
+    #print(f"{w1:15} - {w2:15} | human: {h} | model: {m} | error: {err}")
+
+print("\n================ WORST 10 PAIRS ================\n")
+for w1, w2, h, m, err in worst_10:
+    print(f"{w1:15} - {w2:15} | human: {h:.2f} | model: {m:.2f} | error: {err:.2f}")
 
 # %% [markdown]
 # Do you think the model performs well or not? Why?
@@ -786,77 +815,6 @@ print(pearson_correlation)
 # Select the 10 best and 10 worst performing word pairs. Can you see any patterns that explain why *these* are the best and worst word pairs?
 #
 # [3 marks]
-
-# %%
-####### i had done this block of code only for 
-# understanding for the above question and write its answer.
-#  we can delete it later before submission. 
-
-
-def get_wordsim_pairs(path, vocab, embeddings):
-    pairs = []
-
-    with open(path, 'r', encoding='utf-8') as f:
-        for line in f:
-
-            word1, word2, score = line.strip().split()
-            score = float(score)
-
-            # skip unknown words
-            if word1 not in vocab or word2 not in vocab:
-                continue
-
-            w1_idx = vocab[word1]
-            w2_idx = vocab[word2]
-
-            # embeddings
-            w1 = embeddings(torch.tensor(w1_idx, device=device))
-            w2 = embeddings(torch.tensor(w2_idx, device=device))
-
-            # cosine similarity
-            sim = F.cosine_similarity(
-                w1.unsqueeze(0),
-                w2.unsqueeze(0)
-            ).item()
-
-            # store full info
-            pairs.append((word1, word2, score, sim))
-
-    return pairs
-
-
-# -----------------------------
-# RUN EVALUATION
-# -----------------------------
-path = "data/wordsim_similarity_goldstandard.txt"
-
-pairs = get_wordsim_pairs(path, word_to_idx, cbow_model.embeddings)
-
-# -----------------------------
-# compute ranking
-# -----------------------------
-scored_pairs = [
-    (w1, w2, human, model, abs(human - model))
-    for (w1, w2, human, model) in pairs
-]
-
-# BEST 10 (smallest error)
-best_10 = sorted(scored_pairs, key=lambda x: x[4], reverse=True)[:10]
-
-# WORST 10 (largest error)
-worst_10 = sorted(scored_pairs, key=lambda x: x[4])[:10]
-
-
-# -----------------------------
-# PRINT RESULTS
-# -----------------------------
-print("\n================ BEST 10 PAIRS ================\n")
-for w1, w2, h, m, err in best_10:
-    print(f"{w1:15} - {w2:15} | human: {h:.2f} | model: {m:.2f} | error: {err:.2f}")
-
-print("\n================ WORST 10 PAIRS ================\n")
-for w1, w2, h, m, err in worst_10:
-    print(f"{w1:15} - {w2:15} | human: {h:.2f} | model: {m:.2f} | error: {err:.2f}")
 
 # %% [markdown]
 # The best and worst performing word pairs were selected based on the 
@@ -955,11 +913,15 @@ for w1, w2, h, m, err in worst_10:
 
 # %%
 # you can change these numbers to suit your needs as before
-lm_hyperparameters = {'epochs':3,
-                      'batch_size':16,
+lm_hyperparameters = {'epochs':2,
+                      #'epochs': 3,
+                      #'batch_size':16,
+                      'batch_size' : 4,
                       'learning_rate':0.001,
-                      'embedding_dim':128,
-                      'output_dim':128}
+                      'embedding_dim':64,
+                      #'embedding_dim':128,
+                      #'output_dim': 128
+                      'output_dim':64}
 
 # %%
 #mamitha s - Language modelling - data loader and batcher.
@@ -987,6 +949,7 @@ def get_data(data_path, min_freq=4):
     all_sentences = []
     counter = Counter()
     all_data = []
+    MAX_LEN = 30
     with open(data_path) as f:
         for line in f:
             tokens = line.strip().split()
@@ -1002,8 +965,10 @@ def get_data(data_path, min_freq=4):
     for word,freq in counter.items():
         if freq>=min_freq and word not in word_to_idx:
             word_to_idx[word] = current_idx
-            current_idx += 1   
+            current_idx += 1  
+            
     for item in all_sentences:
+        item = item[:MAX_LEN]
         item = ["<start>"]+item+["<end>"]
         encoded = []
         for t in item:
@@ -1064,13 +1029,14 @@ optimizer = optim.Adam(lm_model.parameters(), lr=lm_hyperparameters['learning_ra
 
 # start training loop
 for epoch in range(lm_hyperparameters['epochs']):
+    dataset, vocab = get_data(data_path)
     total_loss = 0
-    for i, batch in enumerate(dataset):
-
+    for i, batch in enumerate(dataset): 
+        
         # the strucure for each BATCH is:
         # <start>, w0, ..., wn, <end>
         # each batch is one encoded sentence, convert to tensor (1, seq_len)
-        sentence = torch.tensor(batch, dtype=torch.long).unsqueeze(0).to(device)
+        sentence = batch.sentence.to(device)
 
         # when training the model, at each input we predict the *NEXT* token
         # consequently there is nothing to predict when we give the model
@@ -1094,22 +1060,27 @@ for epoch in range(lm_hyperparameters['epochs']):
         # the shape of the output and sentence variable need to be changed,
         # for the loss function. Details are in the documentation.
         # You can use .view(...,...) to reshape the tensors
-        loss = loss_fn(output.view(-1, len(vocab)), gold_data.view(-1))
+        loss = loss_fn(output.reshape(-1, len(vocab)), gold_data.reshape(-1))
+
+        if torch.isnan(loss) or torch.isinf(loss):
+            print("Invalid loss detected:", loss.item())
+            break
+
         total_loss += loss.item()
-
-        # print average loss for the epoch
-        # print(total_loss / (i + 1), end='\r')
-        print(
-            f"Epoch {epoch+1} / {total_epochs} | Batch {i} / {total_batches} | Avg Loss: {total_loss/(i+1):.4f}", end='\r')
-
+        
         # compute gradients
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(lm_model.parameters(), 5.0)
 
         # update parameters
         optimizer.step()
 
-        # reset gradients
+        # reset gradients      
         optimizer.zero_grad()
+
+    # print average loss for the epoch
+    print(f"Epoch {epoch+1} Average Loss: {total_loss / (i + 1):.4f}")
+
 
     print()
 
@@ -1164,40 +1135,42 @@ import json
 def evaluate_model(path, vocab, model):
 
     accuracy = []
-    with open(path) as f:
+    model.eval()
+    with torch.no_grad():
+        with open(path) as f:
         # iterate over one pair of sentences at a time
-        for line in f:
+            for line in f:
             # load the data
-            data = json.loads(line)
-            good_s = data['sentence_good']
-            bad_s = data['sentence_bad']
+                data = json.loads(line)
+                good_s = data['sentence_good']
+                bad_s = data['sentence_bad']
 
             # the data is tokenized as whitespace
-            tok_good_s = ['<start>'] + good_s.split() + ['<end>']
-            tok_bad_s = ['<start>'] + bad_s.split() + ['<end>']
+                tok_good_s = ["<start>"] + good_s.strip().split() + ["<end>"]
+                tok_bad_s = ["<start>"] + bad_s.strip().split() + ["<end>"]
 
             # encode your words as integers using the vocab from the dataloader, size is (S)
             # we use unsqueeze to create the batch dimension
             # in this case our input is only ONE batch, so the size of the tensor becomes:
             # (S) -> (1, S) as the model expects batches
-            enc_good_s = torch.tensor([vocab.get(x, 1) for x in tok_good_s], device=device).unsqueeze(0)
-            enc_bad_s = torch.tensor([vocab.get(x, 1) for x in tok_bad_s], device=device).unsqueeze(0)
+                enc_good_s = torch.tensor([vocab.get(x, vocab['<unk>']) for x in tok_good_s], device=device).unsqueeze(0)
+                enc_bad_s = torch.tensor([vocab.get(x, vocab['<unk>']) for x in tok_bad_s], device=device).unsqueeze(0)
 
             # pass your encoded sentences to the model and predict the next tokens
-            good_s = lm_model(enc_good_s)
-            bad_s = lm_model(enc_bad_s)
+                good_s = model(enc_good_s)
+                bad_s = model(enc_bad_s)
 
             # get probabilities with softmax
-            gs_probs = F.softmax(good_s_output, dim=-1)
-            bs_probs = F.softmax(good_s_output, dim=-1)
+                gs_probs = F.softmax(good_s, dim=-1)
+                bs_probs = F.softmax(bad_s, dim=-1)
 
             # select the probability of the gold tokens
-            gs_sent_prob = find_token_probs(gs_probs, enc_good_s)
-            bs_sent_prob = find_token_probs(bs_probs, enc_bad_s)
+                gs_sent_prob = find_token_probs(gs_probs, enc_good_s)
+                bs_sent_prob = find_token_probs(bs_probs, enc_bad_s)
 
-            accuracy.append(int(gs_sent_prob>bs_sent_prob))
+                accuracy.append(int(gs_sent_prob>bs_sent_prob))
 
-    return accuracy
+        return accuracy
 
 def find_token_probs(model_probs, encoded_sentece):
     probs = []
@@ -1206,16 +1179,18 @@ def find_token_probs(model_probs, encoded_sentece):
     for token, gold_token in enumerate(encoded_sentece):
         # select the probability of the gold tokens and save
         # hint: pytorch indexing is helpful here ;)
-        prob = ...
+        prob = model_probs[0, token, gold_token]
         probs.append(prob)
-    sentence_prob = ...
+    sentence_prob = torch.sum(torch.log(torch.stack(probs) + 1e-10))
     return sentence_prob
 
-path = 'existential_there_quantifiers_1.jsonl'
-accuracy = evaluate_model(path, ..., ...)
+path = 'data/existential_there_quantifiers_1.jsonl'
+accuracy = evaluate_model(path, word_to_idx, lm_model)
 
 print('Final accuracy:')
 print(np.round(np.mean(accuracy), 3))
+
+
 
 
 # %% [markdown]
@@ -1251,6 +1226,17 @@ print(np.round(np.mean(accuracy), 3))
 # [2 marks]
 
 # %%
+To sentence- level accuracy used in BLiMP, language models can also be evaluated 
+
+using metrics such as perplexity, which measure how well the model predicts unseen
+
+text, token-level accuracy for next-word prediction, and BLEU score for generated 
+
+text quality. For embedding models, cosine similarity and correlation-based metrics
+
+such as Pearson correlation (as used in WordSim353) are commonly applied.
+    
+
 
 # %% [markdown]
 # # Literature
@@ -1283,7 +1269,10 @@ print(np.round(np.mean(accuracy), 3))
 #
 # Briefly state how many times you have met for discussions, who was present, to what degree each member contributed to the discussion and the final answers you are submitting.
 
-# %%
+# %% [markdown]
+# We approached this assignment differently from our previous ones. Instead of dividing the tasks among ourselves and cross‑checking each other’s work, each member independently attempted the tasks of assignment. We then compared our solutions and selected the best or most optimized version. 
+#
+# We used GitHub for collaboration, met during lab sessions to discuss our approaches, and stayed in touch through WhatsApp to address any challenges.
 
 # %% [markdown]
 # ## Marks
