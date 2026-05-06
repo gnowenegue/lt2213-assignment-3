@@ -1026,17 +1026,7 @@ print(np.round(np.mean(accuracy), 3))
 # [2 marks]
 
 # %% [markdown]
-# To sentence- level accuracy used in BLiMP, language models can also be evaluated 
-#
-# using metrics such as perplexity, which measure how well the model predicts unseen
-#
-# text, token-level accuracy for next-word prediction, and BLEU score for generated 
-#
-# text quality. For embedding models, cosine similarity and correlation-based metrics
-#
-# such as Pearson correlation (as used in WordSim353) are commonly applied.
-#     
-#
+# To sentence-level accuracy used in BLiMP, language models can also be evaluated using metrics such as perplexity, which measure how well the model predicts unseen text, token-level accuracy for next-word prediction, and BLEU score for generated text quality. For embedding models, cosine similarity and correlation-based metrics such as Pearson correlation (as used in WordSim353) are commonly applied.
 
 # %% [markdown]
 # # Literature
