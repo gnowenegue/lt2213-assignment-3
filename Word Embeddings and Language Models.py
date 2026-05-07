@@ -8,9 +8,9 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: LT2213 Assignment 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
-#     name: lt2213-assignment-3
+#     name: python3
 # ---
 
 # %% [markdown]
@@ -133,7 +133,9 @@ def corpus_reader(data_path, window_size=4, min_freq=4):
     with open(data_path) as f:
         # go over the lines (sentences in the files)
         for line in f:
-            line = line.strip()
+            #print(line)
+            line = line.strip().lower()
+            #print("lowercased",line )
 
             # split sentences into tokens
             tokens = line.split()
@@ -387,12 +389,17 @@ class CBOWModel(nn.Module):
 # The next step is to train a model. First we define what (hyper)parameters we will use, i.e. settings that affect how the model will be trained. You can change these and see what happens with training, for example when *developing* your model you can use a batch size of 2 and a very low dimensionality (say 10) to speed things up. For training your final target model, use batch sizes of [8,16,32,64], and embedding dimensionalities [128,256].
 
 # %%
+# development
+# word_embeddings_hyperparameters = {'epochs': 3,
+#                                    'batch_size': 512,
+#                                    'learning_rate': 0.001,
+#                                    'embedding_dim': 10}
+
+# actual
 word_embeddings_hyperparameters = {'epochs': 3,
-                                   # 'batch_size': 16,
-                                   'batch_size': 512,
+                                   'batch_size': 16,
                                    'learning_rate': 0.001,
-                                   # 'embedding_dim': 128}
-                                   'embedding_dim': 10}
+                                   'embedding_dim': 128}
 
 # %% [markdown]
 # Train your model. Iterate over the dataset, get outputs from your model, calculate loss and backpropagate.
@@ -402,6 +409,9 @@ word_embeddings_hyperparameters = {'epochs': 3,
 # [3 marks]
 
 # %%
+# %%time
+
+
 batch_size = word_embeddings_hyperparameters['batch_size']
 total_batches = (len(all_data) + batch_size - 1) // batch_size
 
@@ -468,6 +478,29 @@ for epoch in range(word_embeddings_hyperparameters['epochs']):
 
 
 # %% [markdown]
+# **Results Documentation**
+#
+# Running on MLTGPU.
+#
+# ```python
+# word_embeddings_hyperparameters = {'epochs': 3,
+#                                    'batch_size': 16,
+#                                    'learning_rate': 0.001,
+#                                    'embedding_dim': 128}
+# ```
+#
+# ```
+# [DEBUG] Data tensor is on -> cuda:0
+# [DEBUG] Model weights are on -> cuda:0
+# ==================================================
+# Epoch 1 / 3 | Batch 79110 / 79111 | Avg Loss: 6.0488
+# Epoch 2 / 3 | Batch 79110 / 79111 | Avg Loss: 5.7796
+# Epoch 3 / 3 | Batch 79110 / 79111 | Avg Loss: 5.6303
+# CPU times: user 6min 58s, sys: 4.43 s, total: 7min 2s
+# Wall time: 7min 5s
+# ```
+
+# %% [markdown]
 # ## Evaluating the model
 
 # %% [markdown]
@@ -505,7 +538,7 @@ def read_wordsim(path, vocab, embeddings):
     pairs = []
     with open(path) as f:
         for line in f:
-            word1, word2, score = line.strip().split()
+            word1, word2, score = line.strip().lower().split()
 
             if word1 not in vocab or word2 not in vocab:
                 continue
@@ -549,6 +582,16 @@ scored_pairs = [
     for (w1, w2, human, model) in pairs
 ]
 
+# %% [markdown]
+# **Results Documentation**
+#
+# Running on MLTGPU.
+#
+# ```
+# [[1.         0.22569431]
+# [0.22569431 1.        ]]
+# ```
+
 # %%
 # BEST 10 (smallest error)
 best_10 = sorted(scored_pairs, key=lambda x: x[4], reverse=True)[:10]
@@ -591,19 +634,9 @@ for w1, w2, h, m, err in worst_10:
 
 # %% [markdown]
 # The best and worst performing word pairs were selected based on the 
-# absolute difference between human similarity scores and model-predicted cosine similarity.
-# The "best" pairs represnt cases where the model predictions are closest to human judgements, 
-# while the "worst" pairs show the largest disagreement.
-# The best performing pairs are mostly weakly related or unrelated words(e.g..., king-cabbage,
-# drink-ear), where both human scores and model predictions are low, resulting in small 
-# errors. in contrast, the worst-performing pairs include strongly related words such as 
-# money-cash, car-automobile, and king-queen, where humans assign high similarity but the 
-# model predicts low similarity.
-#
-# Overall, this shows that the CBOW model struggles to capture true semantic similarity
-# and performs better on unrelated word pairs than on synonym-like or conceptually related words.
-# This is due to its simplified architecture and reliance on contextual co-occurence rather 
-# than deep semantic understanding.
+# absolute difference between human similarity scores and model-predicted cosine similarity.The best pairs are those where model predictions are closest to human judgements, while the worst paiss show the largest disagreement. The best performing pairs include  strongly related or synonym- like words such as money,-cash car-automobile, and king-queen. These words frequently appear in similar contexts, allowing the CBOW model to learn similar embeddings and produce predictions closer to human similarity judgements.
+# In contrast, the worst-performing pairs include weakly related or unrelated words such as king–cabbage and drink–ear. These pairs may have been assigned inaccurate similarities because the model relies only on contextual co-occurrence and cannot fully capture deeper semantic meaning.
+# Overall, the results show that the CBOW model is better at learning relationships between semantically similar words than unrelated words, although its simplified architecture still limits its overall performance.
 
 # %% [markdown]
 # Suggest some ways of improving the model for the task in WordSim353.
@@ -686,14 +719,21 @@ for w1, w2, h, m, err in worst_10:
 
 # %%
 # you can change these numbers to suit your needs as before
+
+# development
+# lm_hyperparameters = {'epochs': 3,
+#                       'batch_size': 512,
+#                       'learning_rate': 0.001,
+#                       'embedding_dim': 10,
+#                       'output_dim': 64}
+
+# actual
 lm_hyperparameters = {'epochs': 3,
-                      # 'batch_size':16,
-                      'batch_size': 512,
+                      'batch_size': 16,
                       'learning_rate': 0.001,
-                      # 'embedding_dim':128,
-                      'embedding_dim': 10,
-                      # 'output_dim': 128
-                      'output_dim': 64}
+                      'embedding_dim': 128,
+                      'output_dim': 128
+                      }
 
 # %%
 from collections import Counter
@@ -793,8 +833,10 @@ class LM_withLSTM(nn.Module):
 
         return predicted_words
 
-
 # %%
+# %%time
+
+
 # load data
 all_data, vocab = get_data(data_path)
 
@@ -878,6 +920,28 @@ for epoch in range(lm_hyperparameters['epochs']):
     print()
 
 # %% [markdown]
+# **Results Documentation**
+#
+# Running on MLTGPU.
+#
+# ```python
+# lm_hyperparameters = {'epochs': 3,
+#                       'batch_size': 16,
+#                       'learning_rate': 0.001,
+#                       'embedding_dim': 128,
+#                       'output_dim': 128
+#                       }
+# ```
+#
+# ```
+# Epoch 1 / 3 | Batch 3124 / 3125 | Avg Loss: 4.0616
+# Epoch 2 / 3 | Batch 3124 / 3125 | Avg Loss: 3.5701
+# Epoch 3 / 3 | Batch 3124 / 3125 | Avg Loss: 3.3851
+# CPU times: user 47.3 s, sys: 372 ms, total: 47.7 s
+# Wall time: 48 s
+# ```
+
+# %% [markdown]
 # ## Evaluating your language model
 #
 # We will evaluate our language model using the BLiMP dataset (https://github.com/alexwarstadt/blimp) which contains sets of linguistic minimal pairs exemplifying various syntactic and semantic phenomena. One of these are *existential quantifiers* (link: https://github.com/alexwarstadt/blimp/blob/master/data/existential_there_quantifiers_1.jsonl). This dataset, as the name suggests, is intended to investigate whether language models assign higher probability to *correct* (i.e. *acceptable* if you are a linguist!) usages of there-quantifiers.
@@ -922,7 +986,7 @@ for epoch in range(lm_hyperparameters['epochs']):
 
 # %%
 # your code goes here
-# evaluate_model - done
+
 import json
 
 
@@ -943,8 +1007,8 @@ def evaluate_model(path, vocab, model):
                 bad_s = data['sentence_bad']
 
                 # the data is tokenized as whitespace
-                tok_good_s = ["<start>"] + good_s.strip().split() + ["<end>"]
-                tok_bad_s = ["<start>"] + bad_s.strip().split() + ["<end>"]
+                tok_good_s = ["<start>"] + good_s.strip().lower().split() + ["<end>"]
+                tok_bad_s = ["<start>"] + bad_s.strip().lower().split() + ["<end>"]
 
                 # encode your words as integers using the vocab from the dataloader, size is (S)
                 # we use unsqueeze to create the batch dimension
@@ -987,7 +1051,7 @@ def find_token_probs(model_probs, encoded_sentece):
 
 
 path = './data/existential_there_quantifiers_1.jsonl'
-accuracy = evaluate_model(path, word_to_idx, lm_model)
+accuracy = evaluate_model(path, vocab, lm_model)
 
 print('Final accuracy:')
 print(np.round(np.mean(accuracy), 3))
