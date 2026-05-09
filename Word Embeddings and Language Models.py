@@ -8,7 +8,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.19.1
 #   kernelspec:
-#     display_name: Python 3 (ipykernel)
+#     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
@@ -218,17 +218,17 @@ print(len(word_to_idx))
 #
 # ### Noise reduction:
 #
-# Since the sentences are randomnly sampled from the entire wikipedia corpus, it still captures a wide range of topics and linguistic contexts.
+# Since the sentences are randomly sampled from the entire wikipedia corpus, it still captures a wide range of topics and linguistic contexts.
 #
 # ## It is bad
 #
 # ### Loss of information
 #
-# 50,000 sentences may not cover rare words, topics, or linguistic patterns, leading to weaker or incomplete word representaions.
+# 50,000 sentences may not cover rare words, topics, or linguistic patterns, leading to weaker or incomplete word representations.
 #
 # ### Sampling bias:
 #
-# Even if random, the sample might not fully represent the diversity of wikipedia, whcih can affect the quality and generalization of the learned embeddings.
+# Even if random, the sample might not fully represent the diversity of wikipedia, which can affect the quality and generalization of the learned embeddings.
 #
 
 # %% [markdown]
@@ -316,9 +316,9 @@ print(f"Context Tensor Shape: {first_batch.context.shape}")
 #
 # ### Reduces vocabulary size
 #
-# Lowercasing merges words like "The" and "the" into a single token. This reduces the vocabulary size and makes training more efficient. For example, after running our corpus_reader, the vocabulary contains 20,672 tokens. Without lowercasing this number would be even larger, since "The", "the" and "THE" would each get a separate entry.
+# Lowercasing merges words like "The" and "the" into a single token. This reduces the vocabulary size and makes training more efficient. For example, after running our corpus_reader, the vocabulary contains 18,884 tokens. Without lowercasing this number would be even larger, since "The", "the" and "THE" would each get a separate entry.
 #
-# ### Improves Statistical reliablity
+# ### Improves Statistical Reliablity
 #
 # Combining different case forms increases the frequency of words(e.g.., "The" and "the"), leading to more stable and better-learned embeddings.
 #
@@ -330,7 +330,7 @@ print(f"Context Tensor Shape: {first_batch.context.shape}")
 #
 # ### Loss of important linguistic signals:
 #
-# Capitalization often indicates important enitites, such as "Congress" (an institution) vs "congress". Lowercasing removes this information, making it harder for the model to distinguis such meanings.
+# Capitalization often indicates important entities, such as "Congress" (an institution) vs "congress". Lowercasing removes this information, making it harder for the model to distinguish such meanings.
 
 # %% [markdown]
 # ## Word embeddings model
@@ -617,15 +617,7 @@ for w1, w2, h, m, err in worst_10:
 # [3 marks]
 
 # %% [markdown]
-# The model does not perform well, as indicated by the low and 
-# slightly negative Pearson correlation score. This shows that the
-# learned embeddings do not align with human judgements of word similarity. 
-# The poor performance is likely due to the limited training data, the use 
-# of a simplified CBOW model, and the absence of advanced techniques 
-# such as negative sampling.Additionally, averaging context words may lead to loss 
-# of important semantic information, resulting in weak word representaions.
-#
-#
+# The model does not perform particularly well. Our Pearson correlation score was 0.225, which shows only a weak positive correlation with human judgements. This shows that the learned embeddings do not align well with human judgements of word similarity. The poor performance is likely due to the limited training data, the use of a simplified CBOW model, and the absence of advanced techniques such as negative sampling. Additionally, summing context words in the projection step may lead to loss of important semantic information, resulting in weak word representations. That said, a score of 0.225 is not zero, which suggests the model has learned something from co-occurrence patterns, just not enough to match human intuition reliably.
 
 # %% [markdown]
 # Select the 10 best and 10 worst performing word pairs. Can you see any patterns that explain why *these* are the best and worst word pairs?
@@ -633,10 +625,11 @@ for w1, w2, h, m, err in worst_10:
 # [3 marks]
 
 # %% [markdown]
-# The best and worst performing word pairs were selected based on the 
-# absolute difference between human similarity scores and model-predicted cosine similarity.The best pairs are those where model predictions are closest to human judgements, while the worst paiss show the largest disagreement. The best performing pairs include  strongly related or synonym- like words such as money,-cash car-automobile, and king-queen. These words frequently appear in similar contexts, allowing the CBOW model to learn similar embeddings and produce predictions closer to human similarity judgements.
-# In contrast, the worst-performing pairs include weakly related or unrelated words such as king–cabbage and drink–ear. These pairs may have been assigned inaccurate similarities because the model relies only on contextual co-occurrence and cannot fully capture deeper semantic meaning.
+# The best and worst performing word pairs were selected based on the absolute difference between human similarity scores and model-predicted cosine similarity. The best pairs are those where model predictions are closest to human judgements, while the worst pairs show the largest disagreement. The best performing pairs include strongly related or synonym-like words such as money and cash, car and automobile, and king and queen. These words frequently appear in similar contexts, allowing the CBOW model to learn similar embeddings and produce predictions closer to human similarity judgements.
+# In contrast, the worst-performing pairs include weakly related or unrelated words such as king and cabbage and drink and ear. These pairs may have been assigned inaccurate similarities because the model relies only on contextual co-occurrence and cannot fully capture deeper semantic meaning.
 # Overall, the results show that the CBOW model is better at learning relationships between semantically similar words than unrelated words, although its simplified architecture still limits its overall performance.
+#
+# One pattern worth noting is that the best and worst pairs are partly shaped by a scale mismatch: human scores range from 0 to 10, while cosine similarity is bounded between -1 and 1. Pairs that humans rate as very similar (e.g. money and cash, scored 9.15) will always have a large absolute error since the model can never predict a value close to 9. Pairs that humans rate as very dissimilar (e.g. king and cabbage, scored 0.23) tend to have small absolute errors simply because the model also outputs a value near 0. This means the best performing pairs are not always the ones the model understood best semantically. The Pearson correlation is a fairer overall metric since it is scale-invariant.
 
 # %% [markdown]
 # Suggest some ways of improving the model for the task in WordSim353.
@@ -651,8 +644,8 @@ for w1, w2, h, m, err in worst_10:
 # In addition, higher-dimensional embeddings allows the model to capture more nuanced semantic 
 # relationships compared to small vectors. Alternative architectures such as Skip-gram,
 # may also performs better on semantic similarity tasks, as they predict context words 
-# from a target word and  handle rare words more effectively. All of these improvements help 
-# the model better capture semantic similarity in WordSim353.
+# from a target word and handle rare words more effectively. All of these improvements help 
+# the model better capture semantic similarity in WordSim353. It would also help to normalise the human scores to the same range as cosine similarity before computing error, so that the evaluation metric is less affected by the scale difference.
 
 # %% [markdown]
 # Sentiment analysis is a (downstream, i.e. a follow-up task) where a model is like this might be used for training. It involves determining whether a sentence is positive or negative.
@@ -671,19 +664,16 @@ for w1, w2, h, m, err in worst_10:
 # This can help a sentiment classifier generalize better to unseen 
 # text by grouping semantically related words together.
 #
-#
 # However, these embeddings may not perform well for sentiment 
 # analysis because the model is trained on general Wikipedia text
 # and learns contextual similarity rather than sentiment or polarity.
 # As a result, words that are semantically related but not 
 # sentiment-related, such as king and queen or football and soccer,
 # are placed close together in embedding space, even though they do 
-# not share sentiment information. Additionally, words with different 
-# emotional polarity may still appear in similar contexts, meaning 
-# the embeddings do not reliably distinguish positive and negative 
-# meaning. Therefore, while the embeddings capture useful semantic 
+# not share sentiment information. Additionally, antonyms like "good" and "bad" often appear in very similar contexts, so the model may give them similar embeddings even though they carry opposite sentiment. Therefore, while the embeddings capture useful semantic 
 # relationships, they are not specifically suitable for sentiment
 # classification tasks.
+#
 
 # %% [markdown]
 # # Language modeling
@@ -769,7 +759,7 @@ def get_data(data_path, min_freq=4):
 
     with open(data_path) as f:
         for line in f:
-            tokens = line.strip().split()
+            tokens = line.strip().lower().split()
             counter.update(tokens)
             all_sentences.append(tokens)
 
@@ -934,11 +924,11 @@ for epoch in range(lm_hyperparameters['epochs']):
 # ```
 #
 # ```
-# Epoch 1 / 3 | Batch 3124 / 3125 | Avg Loss: 4.0616
-# Epoch 2 / 3 | Batch 3124 / 3125 | Avg Loss: 3.5701
-# Epoch 3 / 3 | Batch 3124 / 3125 | Avg Loss: 3.3851
-# CPU times: user 47.3 s, sys: 372 ms, total: 47.7 s
-# Wall time: 48 s
+# Epoch 1 / 3 | Batch 3124 / 3125 | Avg Loss: 4.0398
+# Epoch 2 / 3 | Batch 3124 / 3125 | Avg Loss: 3.5739
+# Epoch 3 / 3 | Batch 3124 / 3125 | Avg Loss: 3.3936
+# CPU times: user 56.1 s, sys: 507 ms, total: 56.6 s
+# Wall time: 57 s
 # ```
 
 # %% [markdown]
@@ -1066,11 +1056,11 @@ print(np.round(np.mean(accuracy), 3))
 # [3 marks]
 
 # %% [markdown]
-# 55% is only slightly better than chance, so it is hard to call this good performance without context. The key question is whether it actually beats a simple baseline.
+# Our model achieved accuracies between 82% to 87% across multiple runs, which is a good result for a LSTM trained on only 50000 sentences. This suggests the model has genuinely learned something meaningful.
 #
-# The most obvious baseline is a random baseline: for each pair, just randomly pick one of the two sentences. This gives 50% accuracy on average without any training at all. Our model at 55% does beat this, but only by a small margin, which suggests it has not learned much about the linguistic phenomenon being tested.
+# A simple baseline is a random baseline: randomly guess which sentence is correct. This gets 50% accuracy without any training at all. Our model beats this by a lot, which is a good sign.
 #
-# A stricter baseline would be a sentence length baseline: always predict the shorter sentence as the acceptable one. If this also achieves around 55%, then the model has not really learned anything beyond what a trivial heuristic can do.
+# A stricter baseline would be a sentence length baseline: always pick the shorter sentence as the correct one. If our model only matched this, it would mean it learned nothing beyond a simple trick. But our results are strong enough across multiple runs that this is not the case.
 
 # %% [markdown]
 # Suggest some improvements you could make to your language model.
@@ -1112,13 +1102,15 @@ print(np.round(np.mean(accuracy), 3))
 # %% [markdown]
 # This lab was a good introduction to how word embeddings and language models actually work under the hood. Implementing CBOW from scratch made it much clearer why the projection step matters and how the model learns from context words.
 #
-# One thing that surprised us was how low the Pearson correlation turned out to be (around 0.019). Even after 10 epochs of training the embeddings did not align well with human similarity judgements. It made us realise that a small dataset like 50,000 Wikipedia sentences is really not enough for this kind of task, and that tricks like negative sampling would make a big practical difference.
+# One thing that surprised us was how low the Pearson correlation turned out to be (around 0.225). Even after 3 epochs of training the embeddings did not align well with human similarity judgements. It made us realise that a small dataset like 50,000 Wikipedia sentences is really not enough for this kind of task, and that tricks like negative sampling would make a big practical difference.
+#
+# We also noticed that the best and worst performing pairs in WordSim353 are partly explained by a scale mismatch: human scores go up to 10 but cosine similarity is capped at 1. This means pairs like money and cash, which humans rate as very similar, always have a large raw error even if the model is doing its best. This made us realise that absolute error is not the most reliable way to compare individual pairs, and that Pearson correlation is a better overall metric.
 #
 # Working as a group helped because different people caught different bugs. For example, we noticed that putting unknown words into the same bucket as padding tokens is not a good idea, since they are conceptually different things. These kinds of small design decisions are easy to miss when working alone.
 #
 # The LSTM part was harder to get right than the CBOW part. Understanding that the input and target are just the same sentence shifted by one position took some time to click, but once it did the rest of the training loop made more sense.
 #
-# The template code provided for this assignment appeared to be outdated and not fully optimised, requiring several corrections throughout. The CBOW model training loop alone contained multiple issues that were indicative of this broader pattern. First, the template referenced a get_data() function that was never defined anywhere in the codebase.  Second, total_loss was initialised outside of the training loop, meaning it would accumulate across all epochs rather than resetting per epoch. This would produce misleading loss values and make it impossible to track per-epoch training progress accurately. We moved the initialisation inside the epoch loop so that the loss resets correctly at the start of each epoch. Third, the ordering of the gradient operations was suboptimal. The template placed the # reset gradients step at the end of each batch iteration rather than at the beginning. While this does not cause incorrect results in a straightforward training loop, it is considered poor practice.
+# The template code provided for this assignment appeared to be outdated and not fully optimised, requiring several corrections throughout. The CBOW model training loop alone contained multiple issues that were indicative of this broader pattern. First, the template referenced a get_data() function that was never defined anywhere in the codebase. Second, total_loss was initialised outside of the training loop, meaning it would accumulate across all epochs rather than resetting per epoch. This would produce misleading loss values and make it impossible to track per-epoch training progress accurately. We moved the initialisation inside the epoch loop so that the loss resets correctly at the start of each epoch. Third, the ordering of the gradient operations was suboptimal. The template placed the # reset gradients step at the end of each batch iteration rather than at the beginning. While this does not cause incorrect results in a straightforward training loop, it is considered poor practice.
 
 # %% [markdown]
 # ## Statement of contribution
